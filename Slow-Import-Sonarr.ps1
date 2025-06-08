@@ -2,7 +2,7 @@
 $sourceFile = $env:Sonarr_SourcePath
 $destFile = $env:Sonarr_DestinationPath
 $name = $env:Sonarr_Series_Title
-$dbid = $env:Sonarr_Series_TvdbId
+$tvdbid = $env:Sonarr_Series_TvdbId
 $seasonNumber = $env:Sonarr_EpisodeFile_SeasonNumber
 $episodeNumber = $env:Sonarr_EpisodeFile_EpisodeNumbers
 $downloadClientType = $env:Sonarr_Download_Client_Type
@@ -121,7 +121,7 @@ try {
                 chunk_size = $chunkSize
                 delay_ms = $delayMs
                 name = $name
-                dbid = $dbid
+                tvdbid = $tvdbid
                 seasonNumber = $seasonNumber
                 episodeNumber = $episodeNumber
                 downloadClientType = $downloadClientType
@@ -183,7 +183,7 @@ try {
         destination = $destFile
         speed_mb_s = $speed_mbps
         name = $name
-        dbid = $dbid
+        tvdbid = $tvdbid
         seasonNumber = $seasonNumber
         episodeNumber = $episodeNumber
         downloadClientType = $downloadClientType
@@ -208,7 +208,7 @@ try {
         speed_mb_s = $speed_mbps
 	    status = "complete"
         name = $name
-        dbid = $dbid
+        tvdbid = $tvdbid
         seasonNumber = $seasonNumber
         episodeNumber = $episodeNumber
         downloadClientType = $downloadClientType
