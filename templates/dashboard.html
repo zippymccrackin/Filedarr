@@ -189,6 +189,7 @@
 
     function renderTransferItem(item) {
       const percent = parseFloat(item.percent_complete?.replace('%', '')) || 0;
+      const percentComplete = `${percent.toFixed(1)}%`;
 
       const name = item.name || "Unknown Show";
       const season = item.seasonNumber?.toString().padStart(2, '0') || "??";
@@ -221,14 +222,14 @@
         </div>
 
         <div style="font-size: 0.9em; color: #ccc;">
-          <span class="percentComplete">${item.percent_complete}</span> — 
+          <span class="percentComplete">${percentComplete}</span> — 
           <span class="transferredMb">${item.transferred_mb}</span>MB /
           <span class="totalMb">${item.total_mb}</span>MB
         </div>
 
         <div style="font-size: 0.9em; margin-top: 4px; color: #ccc;">
-          ETA: <span class="eta">${item.eta}</span> &nbsp;|&nbsp;
-          Speed: <span class="speedColor" style="color: ${speedColor}">
+          <span class="eta">${item.eta}</span> &nbsp;|&nbsp;
+          <span class="speedColor" style="color: ${speedColor}">
             <span class="speed">${item.speed_mb_s?.toFixed(2) || '0.00'}</span> MB/s
           </span>
         </div>
