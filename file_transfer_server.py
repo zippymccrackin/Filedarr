@@ -13,6 +13,7 @@ load_dotenv()
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.config["TEMPLATES_AUTO_RELOAD"] = True
+app.debug = True
 CORS(app)
 
 DB_FILE = "transfers.db"
@@ -32,6 +33,13 @@ def init_db():
         c.execute('''
             CREATE TABLE IF NOT EXISTS tvdb_cache (
                 tvdbid INTEGER PRIMARY KEY,
+                data TEXT,
+                timestamp REAL
+            )
+        ''')
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS tmdb_cache (
+                tmdbid INTEGER PRIMARY KEY,
                 data TEXT,
                 timestamp REAL
             )
@@ -122,6 +130,53 @@ def lookup_tvdb_info(tvdbid, api_key):
         print(f"[TVDB Lookup Error] {e}")
         return None
 
+def get_cached_tmdb_info(tmdbid):
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute('SELECT data, timestamp FROM tmdb_cache WHERE tmdbid = ?', (tmdbid,))
+        row = c.fetchone()
+        if row:
+            cached_data, cached_time = row
+            if time.time() - cached_time < 86400:  # 24 hours
+                return json.loads(cached_data)
+    return None
+
+def cache_tmdb_info(tmdbid, data):
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute('''
+            INSERT OR REPLACE INTO tmdb_cache (tmdbid, data, timestamp)
+            VALUES (?, ?, ?)
+        ''', (tmdbid, json.dumps(data), time.time()))
+        conn.commit()
+
+def lookup_tmdb_info(tmdbid, api_key):
+    cached = get_cached_tmdb_info(tmdbid)
+    if cached:
+        return cached
+
+    try:
+        url = f"https://api.themoviedb.org/3/movie/{tmdbid}?api_key={api_key}"
+        response = requests.get(url)
+        response.raise_for_status()
+        movie = response.json()
+
+        info = {
+            "title": movie.get("title"),
+            "overview": movie.get("overview"),
+            "release_date": movie.get("release_date"),
+            "tmdb_id": movie.get("id"),
+            "poster_path": movie.get("poster_path"),
+            "url": f"https://www.themoviedb.org/movie/{movie.get('id')}"
+        }
+
+        cache_tmdb_info(tmdbid, info)
+        return info
+
+    except Exception as e:
+        print(f"[TMDB Lookup Error] {e}")
+        return None
+
 # --- Routes ---
 @app.route('/')
 def dashboard():
@@ -133,11 +188,17 @@ def receive_status():
     data["timestamp"] = time.time()
     id = data["id"]
 
-    tvdbid = data.get("tvdbid")
+    tvdbid = data.get("meta", {}).get("tvdbid")
     if tvdbid:
         info = lookup_tvdb_info(tvdbid, os.environ["TVDB_API_KEY"])
         if info:
             data["tvdb"] = info
+
+    tmdbid = data.get("meta", {}).get("tmdbid")
+    if tmdbid:
+        info = lookup_tmdb_info(tmdbid, os.environ["TMDB_API_KEY"])
+        if info:
+            data["tmdb"] = info
 
     with lock:
         save_transfer(id, data)
@@ -181,6 +242,11 @@ def delete_transfer(transfer_id):
             client.append(jsonify({"action": "remove", "data": {"id": transfer_id}}))
 
     return jsonify({"removed": removed}), 200
+
+@app.errorhandler(400)
+def bad_request(e):
+    print(str(e))
+    return jsonify(error=str(e)), 400
 
 # --- Entry Point ---
 if __name__ == '__main__':

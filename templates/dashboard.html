@@ -122,6 +122,28 @@
       height: 100%;
       transition: width 0.4s ease;
     }
+
+    *:has(.tooltiptext) {
+      position: relative;
+    }
+
+    .tooltiptext {
+      visibility: hidden;
+      width: 120px;
+      background-color: black;
+      color: #fff;
+      text-align: center;
+      padding: 5px 0;
+      border-radius: 6px;
+
+      /* Position the tooltip text - see examples below! */
+      position: absolute;
+      z-index: 1;
+    }
+
+    *:has(> .tooltiptext):hover .tooltiptext {
+      visibility: visible;
+    }
   </style>
 </head>
 
@@ -177,10 +199,16 @@
       toggle.textContent = isHidden ? '[-]' : '[+]';
     }
 
-    function getColor(percent) {
+    function getBackgroundColor(percent) {
       if (percent < 34) return 'red';
       if (percent < 67) return 'orange';
       return 'green';
+    }
+
+    function getForegroundColor(percent) {
+      if (percent < 34) return 'white';
+      if (percent < 67) return 'white';
+      return 'lime';
     }
 
     function sortTransfersByETA(transfers) {
@@ -189,13 +217,25 @@
 
     function renderTransferItem(item) {
       const percent = parseFloat(item.percent_complete?.replace('%', '')) || 0;
-      const percentComplete = `${percent.toFixed(1)}%`;
 
-      const name = item.name || "Unknown Show";
-      const season = item.seasonNumber?.toString().padStart(2, '0') || "??";
-      const episode = item.episodeNumber?.toString().padStart(2, '0') || "??";
-      const seFormatted = `S${season}E${episode}`;
-      const poster = item.tvdb?.image || "https://via.placeholder.com/100x150?text=No+Poster";
+      let name = item.meta?.name || "Unknown Title";
+      const season = item.meta?.seasonNumber?.toString().padStart(2, '0') || undefined;
+      const episode = item.meta?.episodeNumber?.toString().padStart(2, '0') || undefined;
+      const episodeTitle = item.meta?.episodeTitles || ""
+      let poster = item.tvdb?.image || item.tmdb?.image || undefined;
+
+      if( poster == undefined && item.tmdb?.poster_path ) {
+        poster = `https://image.tmdb.org/t/p/w500/${item.tmdb.poster_path}`;
+      }
+
+      if( item.meta?.year ) {
+        name += ` (${item.meta.year})`;
+      }
+
+      let seasonEpisodeDisplay = "";
+      if( season != undefined && episode != undefined ) {
+        seasonEpisodeDisplay = `S${season}E${episode}`;
+      }
 
       const speedColor =
         item.speed_mb_s >= 4 ? 'lightgreen' :
@@ -210,29 +250,44 @@
       transfer.className = 'transfer';
       transfer.id = item.id;
 
+      // hide these on completed
+      let transferredDisplay = "";
+      let etaSpeedDisplay = "";
+      let relativeTimeDisplay = "";
+      if (percent < 100) {
+        transferredDisplay = `<span class="transferredMb">${item.transferred_mb}</span>MB /`;
+        etaSpeedDisplay = ` <div style="font-size: 0.9em; margin-top: 4px; color: #ccc;">
+          <span class="eta">${item.eta}</span> &nbsp;|&nbsp;
+          <span class="speedColor" style="color: ${speedColor}">
+            <span class="speed">${item.speed_mb_s?.toFixed(2) || '0.00'}</span> MB/s
+          </span>
+        </div>`;
+      } else {
+        // lets say how long ago it completed
+        relativeTimeDisplay = `<div style="font-size: 0.9em; margin-top: 4px; color: #ccc;">
+            Completed <span class="completedTime" data-timestamp="${item.timestamp}">${getRelativeTime(item.timestamp)}</span>
+            <span class="tooltiptext">${getFriendlyTime(item.timestamp)}</span>
+          </div>`;
+      }
       transfer.innerHTML = `
     <div class="transfer-header" style="display: flex; align-items: center; cursor: pointer; padding: 8px; border-radius: 10px; background: #222; margin-bottom: 10px;">
       <img src="${poster}" alt="Poster" style="width: 80px; height: 120px; margin-right: 12px; object-fit: cover; border-radius: 6px;" />
       <div style="flex-grow: 1;">
         <div style="font-size: 1.1em; font-weight: bold;">${name}</div>
-        <div style="color: #aaa;">${seFormatted}</div>
+        <div style="color: #aaa;">${seasonEpisodeDisplay}</div>
 
-        <div class="progress-bar" style="margin: 10px 0; background: #444; height: 10px; border-radius: 5px;">
-          <div class="progress-fill" style="width: ${percent}%; background: ${getColor(percent)}; height: 100%; border-radius: 5px;"></div>
+        <div class="progress-bar" style="margin: 10px 0; background: #444; height: 12px; border-radius: 5px;">
+          <div class="progress-fill" style="width: ${percent}%; background: ${getBackgroundColor(percent)}; height: 100%; border-radius: 5px; display: flex; justify-content: center;">
+            <span class="percentComplete" style="font-size: 75%; color: ${getForegroundColor(percent)};">${percent.toFixed(1)}%</span>  
+          </div>
         </div>
 
-        <div style="font-size: 0.9em; color: #ccc;">
-          <span class="percentComplete">${percentComplete}</span> — 
-          <span class="transferredMb">${item.transferred_mb}</span>MB /
+        <div>
+          ${transferredDisplay}
           <span class="totalMb">${item.total_mb}</span>MB
         </div>
-
-        <div style="font-size: 0.9em; margin-top: 4px; color: #ccc;">
-          <span class="eta">${item.eta}</span> &nbsp;|&nbsp;
-          <span class="speedColor" style="color: ${speedColor}">
-            <span class="speed">${item.speed_mb_s?.toFixed(2) || '0.00'}</span> MB/s
-          </span>
-        </div>
+       ${etaSpeedDisplay}
+       ${relativeTimeDisplay}
       </div>
     </div>
 
@@ -252,7 +307,6 @@
 
       return transfer;
     }
-
 
     function renderCompletedTransfersPage() {
       dashboard.completed.innerHTML = '';
@@ -318,11 +372,51 @@
       renderCompletedTransfersPage();
     }
 
+    function getRelativeTime(dateString) {
+      const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+
+      const now = new Date();
+      const then = new Date(dateString * 1000);
+      const diffInSeconds = Math.floor((then - now) / 1000);
+
+      const units = [
+        { unit: 'day', seconds: 86400 },
+        { unit: 'hour', seconds: 3600 },
+        { unit: 'minute', seconds: 60 },
+        { unit: 'second', seconds: 1 }
+      ];
+
+      for (const { unit, seconds } of units) {
+        const absDelta = Math.floor(Math.abs(diffInSeconds) / seconds);
+        const sign = diffInSeconds < 0 ? -1 : 1;
+        if (absDelta >= 1 || unit === 'second') {
+          return capitalizeFirstLetter(rtf.format(sign * absDelta, unit));
+        }
+      }
+    }
+
+    function getFriendlyTime(dateString) {
+      const date = new Date(dateString * 1000);
+      const options = {
+        weekday: 'long', // "Monday"
+        year: 'numeric',
+        month: 'long', // "June"
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      };
+
+      return date.toLocaleString(date, options);
+    }
+
+    function capitalizeFirstLetter(str) {
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
     function updateDashboard(data) {
       const element = document.getElementById(data.id);
 
       if (data.status == "complete") { // let renderCompletedTransfersPage handle it because pagination
-        console.log(data);
         completedTransfers.push(data);
         renderCompletedTransfersPage();
 
@@ -351,15 +445,15 @@
         element.querySelector(".source").innerText = data.source;
         element.querySelector(".destination").innerText = data.destination;
         element.querySelector(".message").innerText = data.message;
-        element.querySelector(".percentComplete").innerText = data.percent_complete;
         element.querySelector(".transferredMb").innerText = data.transferred_mb;
         element.querySelector(".totalMb").innerText = data.total_mb;
         element.querySelector(".eta").innerText = data.eta;
         element.querySelector(".speed").innerText = data.speed_mb_s;
 
         const perc = parseFloat(data.percent_complete.replace('%', '')) || 0;
+        element.querySelector(".percentComplete").innerText = `${perc.toFixed(1)}%`;
         element.querySelector(".progress-fill").style.width = `${perc}%`;
-        element.querySelector(".progress-fill").style.background = getColor(perc);
+        element.querySelector(".progress-fill").style.background = getBackgroundColor(perc);
 
         element.querySelector(".speedColor").style.color = `${data.speed_mb_s >= 4 ? 'lightgreen' : data.speed_mb_s >= 1 ? 'orange' : 'red'}`;
       }
@@ -380,6 +474,16 @@
           break;
       }
     };
+
+    // recalculate relative times for completions every second
+    window.setInterval(() => {
+      // get all completedTime elements
+      const elements = document.querySelectorAll(".completedTime");
+
+      elements.forEach(ele => {
+        ele.innerText = getRelativeTime(ele.dataset.timestamp);
+      })
+    }, 1000);
   </script>
 </body>
 
