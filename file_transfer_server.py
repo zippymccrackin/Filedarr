@@ -251,8 +251,8 @@ def delete_transfer_all():
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('''
-            DELETE FROM transfers
-        ''')
+            DELETE FROM transfers WHERE status = ?
+        ''', ("complete"))
         conn.commit()
         removed = c.rowcount > 0
     if removed:
