@@ -27,6 +27,7 @@ def init_db():
         c.execute('''
             CREATE TABLE IF NOT EXISTS transfers (
                 id TEXT PRIMARY KEY,
+                status TEXT,
                 data TEXT
             )
         ''')
@@ -46,13 +47,13 @@ def init_db():
         ''')
         conn.commit()
 
-def save_transfer(id, data):
+def save_transfer(id, status, data):
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('''
-            REPLACE INTO transfers (id, data)
+            REPLACE INTO transfers (id, status, data)
             VALUES (?, ?)
-        ''', (id, json.dumps(data)))
+        ''', (id, status, json.dumps(data)))
         conn.commit()
 
 def load_all_transfers():
@@ -187,6 +188,7 @@ def receive_status():
     data = request.get_json()
     data["timestamp"] = time.time()
     id = data["id"]
+    status = "incomplete" if data["percent_complete"] != "100%" else "complete"
 
     tvdbid = data.get("meta", {}).get("tvdbid")
     if tvdbid:
@@ -201,7 +203,7 @@ def receive_status():
             data["tmdb"] = info
 
     with lock:
-        save_transfer(id, data)
+        save_transfer(id, status, data)
         for client in clients:
             client.append({"action": "update", "data": data})
 

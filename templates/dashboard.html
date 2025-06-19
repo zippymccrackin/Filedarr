@@ -399,7 +399,7 @@
       const totalPages = Math.ceil(completedTransfers.length / itemsPerPage);
       renderPaginationControls(totalPages);
 
-      document.getElementById("removeCompletedTransfersBtn").disabled = pageItems.length==0
+      document.getElementById("removeCompletedTransfersBtn").disabled = completedTransfers.length==0
     }
 
     function renderPaginationControls(totalPages) {
@@ -566,11 +566,11 @@
             }, 400); // match animation duration
           }
           break;
-        case "removeAll":
-          const removedElements = document.querySelectorAll(".transfer-container");
+        case "removeall":
+          const removedElements = document.querySelectorAll("#completed-transfers .transfer-container");
 
           if (removedElements.length > 0) {
-            removedElements.forEach(ele => ele.classList.add("fade-out"));
+            document.getElementById("completed-transfers").classList.add("fade-out");
 
             setTimeout(() => {
               completedTransfers = [];
