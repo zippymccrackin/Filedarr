@@ -52,7 +52,7 @@ def save_transfer(id, status, data):
         c = conn.cursor()
         c.execute('''
             REPLACE INTO transfers (id, status, data)
-            VALUES (?, ?)
+            VALUES (?, ?, ?)
         ''', (id, status, json.dumps(data)))
         conn.commit()
 
@@ -251,7 +251,7 @@ def delete_transfer_all():
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('''
-            DELETE FROM transfers WHERE status = ?
+            DELETE FROM transfers WHERE status = ?ds
         ''', ("complete"))
         conn.commit()
         removed = c.rowcount > 0
