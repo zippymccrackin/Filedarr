@@ -144,6 +144,44 @@
     *:has(> .tooltiptext):hover .tooltiptext {
       visibility: visible;
     }
+
+    .remove-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #c62828;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8em;
+      transition: background 0.3s ease;
+    }
+
+    .remove-btn:hover {
+      background: #b71c1c;
+    }
+
+    .transfer-container {
+      position: relative;
+    }
+
+    @keyframes fadeOutUp {
+      0% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      100% {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+    }
+
+    .fade-out {
+      animation: fadeOutUp 0.4s ease forwards;
+    }
   </style>
 </head>
 
@@ -165,6 +203,10 @@
   <div class="section" id="completed-section">
     <h2 onclick="toggleSection('completed')">
       ✅ Completed Transfers
+      <button onclick="removeAllCompleted()"
+        style="font-size: 0.8em; padding: 4px 10px; background: #c62828; color: white; border: none; border-radius: 4px; cursor: pointer;">
+        ✖ Remove All
+      </button>
       <span id="completed-toggle">[-]</span>
     </h2>
     <div id="completed-transfers"></div>
@@ -224,17 +266,20 @@
       const episodeTitle = item.meta?.episodeTitles || ""
       let poster = item.tvdb?.image || item.tmdb?.image || undefined;
 
-      if( poster == undefined && item.tmdb?.poster_path ) {
+      if (poster == undefined && item.tmdb?.poster_path) {
         poster = `https://image.tmdb.org/t/p/w500/${item.tmdb.poster_path}`;
       }
 
-      if( item.meta?.year ) {
+      if (item.meta?.year) {
         name += ` (${item.meta.year})`;
       }
 
       let seasonEpisodeDisplay = "";
-      if( season != undefined && episode != undefined ) {
+      if (season != undefined && episode != undefined) {
         seasonEpisodeDisplay = `S${season}E${episode}`;
+      }
+      if (episodeTitle) {
+        seasonEpisodeDisplay += ` ${episodeTitle}`;
       }
 
       const speedColor =
@@ -246,9 +291,13 @@
         ? `<br>Chunk Size: <span class="chunkSize">${item.chunk_size}</span> Delay: <span class="delayMs">${item.delay_ms}</span>ms`
         : "";
 
+      const transferContainer = document.createElement('div');
+      transferContainer.id = item.id;
+      transferContainer.className = 'transfer-container';
+
       const transfer = document.createElement('div');
       transfer.className = 'transfer';
-      transfer.id = item.id;
+      transferContainer.appendChild(transfer);
 
       // hide these on completed
       let transferredDisplay = "";
@@ -305,7 +354,26 @@
         details.style.display = details.style.display === 'none' ? 'block' : 'none';
       });
 
-      return transfer;
+      // Only show remove button if it's completed
+      if (percent >= 100) {
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-btn';
+        removeBtn.textContent = '✖ Remove';
+        removeBtn.onclick = (e) => {
+          e.stopPropagation(); // Don't toggle details on click
+          fetch(`/transfer/${item.id}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+          }).then(res => {
+            if (!res.ok) {
+              alert("Failed to delete transfer");
+            }
+          });
+        };
+        transferContainer.appendChild(removeBtn);
+      }
+
+      return transferContainer;
     }
 
     function renderCompletedTransfersPage() {
@@ -472,6 +540,31 @@
         case "update":
           updateDashboard(data);
           break;
+        case "remove":
+          const removedId = data.id;
+          const removedElement = document.getElementById(removedId);
+
+          if (removedElement) {
+            removedElement.classList.add("fade-out");
+
+            setTimeout(() => {
+              completedTransfers = completedTransfers.filter(t => t.id !== removedId);
+              renderCompletedTransfersPage();
+            }, 400); // match animation duration
+          }
+          break;
+        case "removeAll":
+          const removedElements = document.querySelectorAll(".transfer-container");
+
+          if (removedElements.length > 0) {
+            removedElements.forEach(ele => ele.classList.add("fade-out"));
+
+            setTimeout(() => {
+              completedTransfers = [];
+              renderCompletedTransfersPage();
+            }, 400);
+          }
+          break;
       }
     };
 
@@ -484,6 +577,19 @@
         ele.innerText = getRelativeTime(ele.dataset.timestamp);
       })
     }, 1000);
+
+    function removeAllCompleted() {
+      if (!confirm("Are you sure you want to remove all completed transfers?")) return;
+
+      fetch(`/transfer/all`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      }).then(res => {
+        if (!res.ok) {
+          console.error(`Failed to delete all items`);
+        }
+      });
+    }
   </script>
 </body>
 

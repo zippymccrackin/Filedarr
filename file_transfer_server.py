@@ -233,13 +233,30 @@ def delete_transfer(transfer_id):
         c = conn.cursor()
         c.execute('''
             DELETE FROM transfers WHERE id = ?
-        ''', (transfer_id))
+        ''', (transfer_id,))
         conn.commit()
         removed = c.rowcount > 0
     if removed:
         # notify clients
         for client in clients:
-            client.append(jsonify({"action": "remove", "data": {"id": transfer_id}}))
+            client.append({"action": "remove", "data": {"id": transfer_id}})
+
+    return jsonify({"removed": removed}), 200
+
+@app.route("/transfer/all", methods=["DELETE"])
+def delete_transfer_all():
+    removed = False
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute('''
+            DELETE FROM transfers
+        ''')
+        conn.commit()
+        removed = c.rowcount > 0
+    if removed:
+        # notify clients
+        for client in clients:
+            client.append({"action": "removeAll", "data": {}})
 
     return jsonify({"removed": removed}), 200
 
