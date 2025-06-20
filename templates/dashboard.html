@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>File Transfer Dashboard</title>
+  <title>Filedarr Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
@@ -101,15 +101,6 @@
       }
     }
 
-    .transfer {
-      border: 1px solid #444;
-      border-radius: 8px;
-      padding: 10px;
-      margin-bottom: 15px;
-      background: #1e1e1e;
-      color: white;
-    }
-
     .progress-bar {
       height: 8px;
       width: 100%;
@@ -185,15 +176,112 @@
     .fade-out {
       animation: fadeOutUp 0.4s ease forwards;
     }
+
+    #header {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .transfer {
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 15px;
+      background: #ddd;
+    }
+
+    body.dark .transfer {
+      background: #1e1e1e;
+      color: white;
+    }
+
+    .transfer-header {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 10px;
+      background: #eee;
+      margin-bottom: 10px;
+      color: black;
+    }
+
+    body.dark .transfer-header {
+      background: #222;
+      color: white;
+    }
+
+    .eta-speed {
+      font-size: 0.9em;
+      margin-top: 4px;
+    }
+
+    body.dark .eta-speed {
+      color: #ccc;
+    }
+
+    .speedFast {
+      color: green;
+    }
+
+    body.dark .speedFast {
+      color: lightgreen;
+    }
+
+    .speedMedium {
+      color: tomato;
+    }
+
+    body.dark .speedMedium {
+      color: orange;
+    }
+
+    .speedSlow {
+      color: red;
+    }
+
+    .episode-display {
+      color: black;
+    }
+
+    body.dark .episode-display {
+      color: #aaa;
+    }
+
+    .time-display {
+      font-size: 0.9em;
+      margin-top: 4px;
+      color: #333;
+    }
+
+    body.dark .time-display {
+      color: #ccc;
+    }
+
+    body.dark .controls button {
+      background: #333;
+    }
+
+    .transfer-details {
+      display: none;
+      font-size: 0.85em;
+      word-break: break-all;
+    }
+
+    body.dark .transfer-details {
+      color: #bbb;
+    }
   </style>
 </head>
 
 <body>
-  <h1>📦 File Transfer Dashboard</h1>
+  <header id="header">
+    <h1>Filedarr Dashboard</h1>
 
-  <div class="controls">
-    <button onclick="toggleDarkMode()">🌓 Toggle Dark Mode</button>
-  </div>
+    <div class="controls">
+      <button onclick="toggleDarkMode()">🌓</button>
+    </div>
+  </header>
 
   <div class="section" id="current-section">
     <h2 onclick="toggleSection('current')">
@@ -292,10 +380,10 @@
         seasonEpisodeDisplay += ` ${episodeTitle}`;
       }
 
-      const speedColor =
-        item.speed_mb_s >= 4 ? 'lightgreen' :
-          item.speed_mb_s >= 1 ? 'orange' :
-            'red';
+      const speedClass =
+        item.speed_mb_s >= 100 ? 'speedFast' :
+          item.speed_mb_s >= 5 ? 'speedMedium' :
+            'speedSlow';
 
       const chunkTxt = (item.chunk_size !== undefined && item.delay_ms !== undefined)
         ? `<br>Chunk Size: <span class="chunkSize">${item.chunk_size}</span> Delay: <span class="delayMs">${item.delay_ms}</span>ms`
@@ -315,25 +403,25 @@
       let relativeTimeDisplay = "";
       if (percent < 100) {
         transferredDisplay = `<span class="transferredMb">${item.transferred_mb}</span>MB /`;
-        etaSpeedDisplay = ` <div style="font-size: 0.9em; margin-top: 4px; color: #ccc;">
+        etaSpeedDisplay = ` <div class="eta-speed">
           <span class="eta">${item.eta}</span> &nbsp;|&nbsp;
-          <span class="speedColor" style="color: ${speedColor}">
+          <span class="speedColor ${speedClass}">
             <span class="speed">${item.speed_mb_s?.toFixed(2) || '0.00'}</span> MB/s
           </span>
         </div>`;
       } else {
         // lets say how long ago it completed
-        relativeTimeDisplay = `<div style="font-size: 0.9em; margin-top: 4px; color: #ccc;">
+        relativeTimeDisplay = `<div class="time-display">
             Completed <span class="completedTime" data-timestamp="${item.timestamp}">${getRelativeTime(item.timestamp)}</span>
             <span class="tooltiptext">${getFriendlyTime(item.timestamp)}</span>
           </div>`;
       }
       transfer.innerHTML = `
-    <div class="transfer-header" style="display: flex; align-items: center; cursor: pointer; padding: 8px; border-radius: 10px; background: #222; margin-bottom: 10px;">
+    <div class="transfer-header">
       <img src="${poster}" alt="Poster" style="width: 80px; height: 120px; margin-right: 12px; object-fit: cover; border-radius: 6px;" />
       <div style="flex-grow: 1;">
         <div style="font-size: 1.1em; font-weight: bold;">${name}</div>
-        <div style="color: #aaa;">${seasonEpisodeDisplay}</div>
+        <div class="episode-display">${seasonEpisodeDisplay}</div>
 
         <div class="progress-bar" style="margin: 10px 0; background: #444; height: 12px; border-radius: 5px;">
           <div class="progress-fill" style="width: ${percent}%; background: ${getBackgroundColor(percent)}; height: 100%; border-radius: 5px; display: flex; justify-content: center;">
@@ -350,8 +438,9 @@
       </div>
     </div>
 
-    <div class="transfer-details" style="display: none; margin-left: 92px; margin-bottom: 12px; font-size: 0.85em; color: #bbb;">
-      <strong class="source">${item.source}</strong> → <em class="destination">${item.destination}</em><br>
+    <div class="transfer-details">
+      Source: <span class="source">${item.source}</span><br />
+      Destination: <span class="destination">${item.destination}</span><br>
       <span class="message">${item.message}</span>
       ${chunkTxt}
     </div>
@@ -399,7 +488,7 @@
       const totalPages = Math.ceil(completedTransfers.length / itemsPerPage);
       renderPaginationControls(totalPages);
 
-      document.getElementById("removeCompletedTransfersBtn").disabled = completedTransfers.length==0
+      document.getElementById("removeCompletedTransfersBtn").disabled = completedTransfers.length == 0
     }
 
     function renderPaginationControls(totalPages) {
@@ -412,7 +501,7 @@
       prevBtn.textContent = '⬅ Prev';
       prevBtn.disabled = currentCompletedPage === 1;
       prevBtn.onclick = () => {
-        setCurrentCompletedPage(currentCompletedPage-1);
+        setCurrentCompletedPage(currentCompletedPage - 1);
         renderCompletedTransfersPage();
       };
 
