@@ -252,7 +252,7 @@ def delete_transfer_all():
         c = conn.cursor()
         c.execute('''
             DELETE FROM transfers WHERE status = ?
-        ''', ("complete"))
+        ''', ("complete",))
         conn.commit()
         removed = c.rowcount > 0
     if removed:
