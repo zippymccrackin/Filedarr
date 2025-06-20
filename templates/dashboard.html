@@ -629,7 +629,7 @@
         element.querySelector(".progress-fill").style.background = getBackgroundColor(perc);
 
         element.querySelector(".speedColor").classList.remove("speedFast", "speedMedium", "speedSlow");
-        element.querySelector(".speedColor").classList.add(`${data.speed_mb_s >= speedHigh ? 'speedHigh' : data.speed_mb_s >= speedMedium ? 'speedMedium' : 'speedLow'}`);
+        element.querySelector(".speedColor").classList.add(`${data.speed_mb_s >= speedHigh ? 'speedFast' : data.speed_mb_s >= speedMedium ? 'speedMedium' : 'speedLow'}`);
       }
     }
 
