@@ -450,7 +450,7 @@
       const header = transfer.querySelector('.transfer-header');
       const details = transfer.querySelector('.transfer-details');
       header.addEventListener('click', () => {
-        details.style.display = details.style.display === 'none' ? 'block' : 'none';
+        details.style.display = details.style.display === 'none' || details.style.display === '' ? 'block' : 'none';
       });
 
       // Only show remove button if it's completed
