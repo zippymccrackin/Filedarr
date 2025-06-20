@@ -315,6 +315,9 @@
     let completedTransfers = [];
     const itemsPerPage = 5;
 
+    let speedHigh = 100;
+    let speedMedium = 5;
+
     function toggleDarkMode() {
       const isDark = document.body.classList.toggle('dark');
       localStorage.setItem('darkMode', isDark ? 'true' : 'false');
@@ -381,8 +384,8 @@
       }
 
       const speedClass =
-        item.speed_mb_s >= 100 ? 'speedFast' :
-          item.speed_mb_s >= 5 ? 'speedMedium' :
+        item.speed_mb_s >= speedHigh ? 'speedFast' :
+          item.speed_mb_s >= speedMedium ? 'speedMedium' :
             'speedSlow';
 
       const chunkTxt = (item.chunk_size !== undefined && item.delay_ms !== undefined)
@@ -625,7 +628,8 @@
         element.querySelector(".progress-fill").style.width = `${perc}%`;
         element.querySelector(".progress-fill").style.background = getBackgroundColor(perc);
 
-        element.querySelector(".speedColor").style.color = `${data.speed_mb_s >= 4 ? 'lightgreen' : data.speed_mb_s >= 1 ? 'orange' : 'red'}`;
+        element.querySelector(".speedColor").classList.remove("speedFast", "speedMedium", "speedSlow");
+        element.querySelector(".speedColor").classList.add(`${data.speed_mb_s >= speedHigh ? 'speedHigh' : data.speed_mb_s >= speedMedium ? 'speedMedium' : 'speedLow'}`);
       }
     }
 
