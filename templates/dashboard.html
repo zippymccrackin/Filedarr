@@ -193,7 +193,7 @@
       }
     }
 
-    .fade-out {
+    .fade-out-up {
       animation: fadeOutUp 0.4s ease forwards;
     }
 
@@ -302,40 +302,135 @@
     body.dark section#top {
       background-color: var(--background-color-darkmode);
     }
+
+    .confirm-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 1000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      animation: fadeIn 0.3s ease forwards;
+    }
+
+    .confirm-dialog {
+      background: #222;
+      color: white;
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 300px;
+      text-align: center;
+      transform: scale(0.8);
+      opacity: 0;
+      animation: zoomIn 0.3s ease forwards;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .fade-out {
+      animation: fadeOut 0.2s ease forwards;
+    }
+
+    .dialog-out {
+      animation: zoomOut 0.2s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    @keyframes fadeOut {
+      from {
+        opacity: 1;
+      }
+
+      to {
+        opacity: 0;
+      }
+    }
+
+    @keyframes zoomIn {
+      from {
+        transform: scale(0.8);
+        opacity: 0;
+      }
+
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    @keyframes zoomOut {
+      from {
+        transform: scale(1);
+        opacity: 1;
+      }
+
+      to {
+        transform: scale(0.8);
+        opacity: 0;
+      }
+    }
+
+    .blur {
+      filter: blur(4px);
+      transition: filter 0.3s ease;
+    }
   </style>
 </head>
 
 <body>
-  <section id="top">
-    <header id="header">
-      <h1 style="display: flex;"><img src="/favicon-32x32.png" style="margin-right: 5px" /> Filedarr Dashboard</h1>
+  <div id="dashboardContent">
+    <section id="top">
+      <header id="header">
+        <h1 style="display: flex;"><img src="/favicon-32x32.png" style="margin-right: 5px" /> Filedarr Dashboard</h1>
 
-      <div class="controls">
-        <button onclick="toggleDarkMode()">🌓</button>
+        <div class="controls">
+          <button onclick="toggleDarkMode()">🌓</button>
+        </div>
+      </header>
+
+      <div class="section" id="current-section">
+        <h2 onclick="toggleSection('current')">
+          ⏳ Current Transfers
+          <span id="current-toggle">[-]</span>
+        </h2>
+        <div id="current-transfers"></div>
       </div>
-    </header>
-
-    <div class="section" id="current-section">
-      <h2 onclick="toggleSection('current')">
-        ⏳ Current Transfers
-        <span id="current-toggle">[-]</span>
+    </section>
+    <div class="section" id="completed-section">
+      <h2 onclick="toggleSection('completed')">
+        ✅ Completed Transfers
+        <span id="completed-toggle">[-]</span>
       </h2>
-      <div id="current-transfers"></div>
+      <div class="pagination completed-pagination"></div>
+      <button onclick="removeAllCompleted()" id="removeCompletedTransfersBtn"
+        style="font-size: 0.8em; padding: 4px 10px; background: #c62828; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%">
+        ✖ Remove All Completed Transfers
+      </button>
+      <div id="completed-transfers"></div>
+      <div class="pagination completed-pagination"></div>
     </div>
-  </section>
+  </div>
 
-  <div class="section" id="completed-section">
-    <h2 onclick="toggleSection('completed')">
-      ✅ Completed Transfers
-      <span id="completed-toggle">[-]</span>
-    </h2>
-    <div class="pagination completed-pagination"></div>
-    <button onclick="removeAllCompleted()" id="removeCompletedTransfersBtn"
-      style="font-size: 0.8em; padding: 4px 10px; background: #c62828; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%">
-      ✖ Remove All Completed Transfers
-    </button>
-    <div id="completed-transfers"></div>
-    <div class="pagination completed-pagination"></div>
+  <div id="confirmOverlay" class="confirm-overlay hidden">
+    <div class="confirm-dialog">
+      <p>Are you sure you want to remove all completed transfers?</p>
+      <div style="margin-top: 15px;">
+        <button id="confirmYes" style="background: #c62828; color: white;">Yes</button>
+        <button id="confirmNo" style="margin-left: 10px;">Cancel</button>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -687,7 +782,7 @@
           const removedElement = document.getElementById(removedId);
 
           if (removedElement) {
-            removedElement.classList.add("fade-out");
+            removedElement.classList.add("fade-out-up");
 
             setTimeout(() => {
               completedTransfers = completedTransfers.filter(t => t.id !== removedId);
@@ -699,7 +794,7 @@
           const removedElements = document.querySelectorAll("#completed-transfers .transfer-container");
 
           if (removedElements.length > 0) {
-            document.getElementById("completed-transfers").classList.add("fade-out");
+            document.getElementById("completed-transfers").classList.add("fade-out-up");
 
             setTimeout(() => {
               completedTransfers = [];
@@ -722,16 +817,53 @@
     }, 1000);
 
     function removeAllCompleted() {
-      if (!confirm("Are you sure you want to remove all completed transfers?")) return;
+      const overlay = document.getElementById("confirmOverlay");
+      const dialog = overlay.querySelector(".confirm-dialog");
+      const yesBtn = document.getElementById("confirmYes");
+      const noBtn = document.getElementById("confirmNo");
+      const dashboard = document.getElementById("dashboardContent");
 
-      fetch(`/transfer/all`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' }
-      }).then(res => {
-        if (!res.ok) {
-          console.error(`Failed to delete all items`);
+      function closeOverlay() {
+        overlay.classList.add("fade-out");
+        dialog.classList.add("dialog-out");
+        setTimeout(() => {
+          overlay.classList.add("hidden");
+          dashboard.classList.remove("blur");
+          document.onkeydown = null;
+        }, 200);
+      }
+
+      overlay.classList.remove("hidden", "fade-out");
+      dialog.classList.remove("dialog-out");
+      dashboard.classList.add("blur");
+
+      yesBtn.onclick = () => {
+        closeOverlay();
+        fetch(`/transfer/all`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        }).then(res => {
+          if (!res.ok) {
+            console.error(`Failed to delete all items`);
+          }
+        });
+      };
+
+      noBtn.onclick = closeOverlay;
+
+      // Clicking outside dialog
+      overlay.onclick = (e) => {
+        if (!dialog.contains(e.target)) {
+          closeOverlay();
         }
-      });
+      };
+
+      // Pressing Escape key
+      document.onkeydown = (e) => {
+        if (e.key === "Escape") {
+          closeOverlay();
+        }
+      };
     }
   </script>
 </body>
