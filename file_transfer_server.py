@@ -271,15 +271,27 @@ def bad_request(e):
 @app.route('/favicon.ico')
 def favicon():
     return send_from_directory(os.path.join(app.root_path, 'static'), 'images/favicon.ico', mimetype='image/x-icon')
+@app.route('/favicon.svg')
+def faviconsvg():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'images/favicon.svg', mimetype='image/x-icon')
 @app.route('/apple-touch-icon.png')
 def apple_touch_icon():
     return send_from_directory(os.path.join(app.root_path, 'static'), 'images/apple-touch-icon.png', mimetype='image/png')
+@app.route('/favicon-96x96.png')
+def png_icon_9696():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'images/favicon-96x96.png', mimetype='image/png')
 @app.route('/favicon-32x32.png')
 def png_icon_3232():
     return send_from_directory(os.path.join(app.root_path, 'static'), 'images/favicon-32x32.png', mimetype='image/png')
 @app.route('/favicon-16x16.png')
 def png_icon_1616():
     return send_from_directory(os.path.join(app.root_path, 'static'), 'images/favicon-16x16.png', mimetype='image/png')
+@app.route('/web-app-manifest-192x192.png')
+def png_icon_192192():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'images/web-app-manifest-192x192.png', mimetype='image/png')
+@app.route('/web-app-manifest-512x512.png')
+def png_icon_512512():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'images/web-app-manifest-512x512.png', mimetype='image/png')
 @app.route('/site.webmanifest')
 def site_manifest():
     return send_from_directory(os.path.join(app.root_path, 'static'), 'site.webmanifest', mimetype='application/manifest+json')
