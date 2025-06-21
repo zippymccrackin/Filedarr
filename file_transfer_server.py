@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, Response
+from flask import Flask, request, jsonify, render_template, Response, send_from_directory
 from flask_cors import CORS
 from threading import Lock
 import sqlite3
@@ -266,6 +266,23 @@ def delete_transfer_all():
 def bad_request(e):
     print(str(e))
     return jsonify(error=str(e)), 400
+
+# Favicons
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'images/favicon.ico', mimetype='image/x-icon')
+@app.route('/apple-touch-icon.png')
+def apple_touch_icon():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'images/apple-touch-icon.png', mimetype='image/png')
+@app.route('/favicon-32x32.png')
+def png_icon_3232():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'images/favicon-32x32.png', mimetype='image/png')
+@app.route('/favicon-16x16.png')
+def png_icon_1616():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'images/favicon-16x16.png', mimetype='image/png')
+@app.route('/site.webmanifest')
+def site_manifest():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'site.webmanifest', mimetype='application/manifest+json')
 
 # --- Entry Point ---
 if __name__ == '__main__':

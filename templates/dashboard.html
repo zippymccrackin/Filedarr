@@ -5,17 +5,33 @@
   <meta charset="UTF-8">
   <title>Filedarr Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="manifest" href="/site.webmanifest">
   <style>
+    :root {
+      --background-color-lightmode: #f4f4f4;
+      --background-color-darkmode: #1e1e1e;
+    }
+
+    html,
+    body {
+      box-sizing: border-box;
+      width: 100%;
+      overflow-x: hidden;
+    }
+
     body {
       font-family: sans-serif;
-      background: #f4f4f4;
+      background: var(--background-color-lightmode);
       padding: 1em;
       margin: 0;
       transition: background 0.3s, color 0.3s;
     }
 
     body.dark {
-      background: #1e1e1e;
+      background: var(--background-color-darkmode);
       color: #f0f0f0;
     }
 
@@ -271,44 +287,58 @@
     body.dark .transfer-details {
       color: #bbb;
     }
+
+    section#top {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background-color: var(--background-color-lightmode);
+    }
+
+    body.dark section#top {
+      background-color: var(--background-color-darkmode);
+    }
   </style>
 </head>
 
 <body>
-  <header id="header">
-    <h1>Filedarr Dashboard</h1>
+  <section id="top">
+    <header id="header">
+      <h1 style="display: flex;"><img src="/favicon-32x32.png" style="margin-right: 5px" /> Filedarr Dashboard</h1>
 
-    <div class="controls">
-      <button onclick="toggleDarkMode()">🌓</button>
+      <div class="controls">
+        <button onclick="toggleDarkMode()">🌓</button>
+      </div>
+    </header>
+
+    <div class="section" id="current-section">
+      <h2 onclick="toggleSection('current')">
+        ⏳ Current Transfers
+        <span id="current-toggle">[-]</span>
+      </h2>
+      <div id="current-transfers"></div>
     </div>
-  </header>
-
-  <div class="section" id="current-section">
-    <h2 onclick="toggleSection('current')">
-      ⏳ Current Transfers
-      <span id="current-toggle">[-]</span>
-    </h2>
-    <div id="current-transfers"></div>
-  </div>
+  </section>
 
   <div class="section" id="completed-section">
     <h2 onclick="toggleSection('completed')">
       ✅ Completed Transfers
       <span id="completed-toggle">[-]</span>
     </h2>
+    <div class="pagination completed-pagination"></div>
     <button onclick="removeAllCompleted()" id="removeCompletedTransfersBtn"
       style="font-size: 0.8em; padding: 4px 10px; background: #c62828; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%">
       ✖ Remove All Completed Transfers
     </button>
     <div id="completed-transfers"></div>
-    <div class="pagination" id="completed-pagination"></div>
+    <div class="pagination completed-pagination"></div>
   </div>
 
   <script>
     const dashboard = {
       current: document.getElementById('current-transfers'),
       completed: document.getElementById('completed-transfers'),
-      completedPagination: document.getElementById('completed-pagination'),
+      completedPagination: document.querySelectorAll('.completed-pagination'),
     };
 
     let latestData = {};
@@ -405,7 +435,7 @@
       let etaSpeedDisplay = "";
       let relativeTimeDisplay = "";
       if (percent < 100) {
-        transferredDisplay = `<span class="transferredMb">${item.transferred_mb}</span>MB /`;
+        transferredDisplay = `<span class="transferredMb">${Number(item.transferred_mb).toLocaleString()}</span> MB /`;
         etaSpeedDisplay = ` <div class="eta-speed">
           <span class="eta">${item.eta}</span> &nbsp;|&nbsp;
           <span class="speedColor ${speedClass}">
@@ -434,7 +464,7 @@
 
         <div>
           ${transferredDisplay}
-          <span class="totalMb">${item.total_mb}</span>MB
+          <span class="totalMb">${Number(item.total_mb).toLocaleString()}</span> MB
         </div>
        ${etaSpeedDisplay}
        ${relativeTimeDisplay}
@@ -495,33 +525,35 @@
     }
 
     function renderPaginationControls(totalPages) {
-      const controls = dashboard.completedPagination;
-      controls.innerHTML = '';
+      const controlElements = dashboard.completedPagination;
+      controlElements.forEach(controls => {
+        controls.innerHTML = '';
 
-      if (totalPages <= 1) return;
+        if (totalPages <= 1) return;
 
-      const prevBtn = document.createElement('button');
-      prevBtn.textContent = '⬅ Prev';
-      prevBtn.disabled = currentCompletedPage === 1;
-      prevBtn.onclick = () => {
-        setCurrentCompletedPage(currentCompletedPage - 1);
-        renderCompletedTransfersPage();
-      };
+        const prevBtn = document.createElement('button');
+        prevBtn.textContent = '⬅ Prev';
+        prevBtn.disabled = currentCompletedPage === 1;
+        prevBtn.onclick = () => {
+          setCurrentCompletedPage(currentCompletedPage - 1);
+          renderCompletedTransfersPage();
+        };
 
-      const nextBtn = document.createElement('button');
-      nextBtn.textContent = 'Next ➡';
-      nextBtn.disabled = currentCompletedPage === totalPages;
-      nextBtn.onclick = () => {
-        setCurrentCompletedPage(currentCompletedPage + 1);
-        renderCompletedTransfersPage();
-      };
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = 'Next ➡';
+        nextBtn.disabled = currentCompletedPage === totalPages;
+        nextBtn.onclick = () => {
+          setCurrentCompletedPage(currentCompletedPage + 1);
+          renderCompletedTransfersPage();
+        };
 
-      const info = document.createElement('span');
-      info.textContent = `Page ${currentCompletedPage} of ${totalPages}`;
+        const info = document.createElement('span');
+        info.textContent = `Page ${currentCompletedPage} of ${totalPages}`;
 
-      controls.appendChild(prevBtn);
-      controls.appendChild(info);
-      controls.appendChild(nextBtn);
+        controls.appendChild(prevBtn);
+        controls.appendChild(info);
+        controls.appendChild(nextBtn);
+      });
     }
 
     function renderDashboard(data) {
@@ -618,8 +650,8 @@
         element.querySelector(".source").innerText = data.source;
         element.querySelector(".destination").innerText = data.destination;
         element.querySelector(".message").innerText = data.message;
-        element.querySelector(".transferredMb").innerText = data.transferred_mb;
-        element.querySelector(".totalMb").innerText = data.total_mb;
+        element.querySelector(".transferredMb").innerText = Number(data.transferred_mb).toLocaleString();
+        element.querySelector(".totalMb").innerText = Number(data.total_mb).toLocaleString();
         element.querySelector(".eta").innerText = data.eta;
         element.querySelector(".speed").innerText = data.speed_mb_s;
 
