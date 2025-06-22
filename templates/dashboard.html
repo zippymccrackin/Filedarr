@@ -12,6 +12,8 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="shortcut icon" href="/favicon.ico" />
   <link rel="manifest" href="/site.webmanifest" />
+  <link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css" />
+  <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
 
   <style>
     :root {
@@ -419,6 +421,24 @@
       color: #aaa;
       font-size: 14px;
     }
+
+    .mobile-only {
+      display: none;
+    }
+
+    .desktop-only {
+      display: block;
+    }
+
+    @media (max-width: 768px) {
+      .mobile-only {
+        display: block;
+      }
+
+      .desktop-only {
+        display: none;
+      }
+    }
   </style>
 </head>
 
@@ -450,9 +470,17 @@
         style="font-size: 0.8em; padding: 4px 10px; background: #c62828; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%">
         ✖ Remove All Completed Transfers
       </button>
-      <div class="pagination completed-pagination"></div>
-      <div id="completed-transfers"></div>
-      <div class="pagination completed-pagination"></div>
+      <div class="pagination completed-pagination desktop-only"></div>
+      <!-- Swiper container only for mobile -->
+      <div class="swiper-container mobile-only">
+        <div class="swiper-wrapper" id="completed-swiper-wrapper">
+          <!-- JS will populate slides -->
+        </div>
+      </div>
+
+      <!-- Desktop pagination -->
+      <div id="completed-transfers" class="desktop-only"></div>
+      <div class="pagination desktop-only completed-pagination"></div>
     </div>
   </div>
 
@@ -658,6 +686,8 @@
       renderPaginationControls(totalPages);
 
       document.getElementById("removeCompletedTransfersBtn").disabled = completedTransfers.length == 0
+
+      renderMobileTransfers();
     }
 
     function renderPaginationControls(totalPages) {
@@ -928,6 +958,42 @@
           closeOverlay();
         }
       };
+    }
+
+    function renderMobileTransfers() {
+      const wrapper = document.getElementById('completed-swiper-wrapper');
+      wrapper.innerHTML = '';
+
+      const totalPages = Math.ceil(completedTransfers.length / itemsPerPage);
+
+      for (let page = 1; page <= totalPages; page++) {
+        const slide = document.createElement('div');
+        slide.className = 'swiper-slide';
+
+        const start = (page - 1) * itemsPerPage;
+        const end = start + itemsPerPage;
+        const pageItems = completedTransfers.slice(start, end);
+
+        const pageDiv = document.createElement('div');
+        pageItems.forEach(item => {
+          pageDiv.appendChild(renderTransferItem(item));
+        });
+
+        slide.appendChild(pageDiv);
+        wrapper.appendChild(slide);
+      }
+
+      // (Re)init Swiper
+      if (window.completedSwiper) {
+        window.completedSwiper.destroy(true, true);
+      }
+
+      window.completedSwiper = new Swiper('.swiper-container', {
+        direction: 'horizontal',
+        loop: false,
+        spaceBetween: 16,
+        slidesPerView: 1,
+      });
     }
   </script>
 </body>
