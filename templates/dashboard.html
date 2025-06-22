@@ -386,6 +386,39 @@
       filter: blur(4px);
       transition: filter 0.3s ease;
     }
+
+    .pagination button {
+      padding: 6px 12px;
+      margin: 0 2px;
+      border: none;
+      border-radius: 20px;
+      background-color: #444;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.3s, transform 0.2s;
+    }
+
+    .pagination button:hover:not(:disabled) {
+      background-color: #666;
+      transform: translateY(-1px);
+    }
+
+    .pagination button:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+
+    .pagination button.active {
+      background-color: #2196f3;
+      font-weight: bold;
+    }
+
+    .pagination span {
+      padding: 6px 10px;
+      color: #aaa;
+      font-size: 14px;
+    }
   </style>
 </head>
 
@@ -413,11 +446,11 @@
         ✅ Completed Transfers
         <span id="completed-toggle">[-]</span>
       </h2>
-      <div class="pagination completed-pagination"></div>
       <button onclick="removeAllCompleted()" id="removeCompletedTransfersBtn"
         style="font-size: 0.8em; padding: 4px 10px; background: #c62828; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%">
         ✖ Remove All Completed Transfers
       </button>
+      <div class="pagination completed-pagination"></div>
       <div id="completed-transfers"></div>
       <div class="pagination completed-pagination"></div>
     </div>
@@ -609,6 +642,11 @@
     }
 
     function renderCompletedTransfersPage() {
+      const totalPages = Math.ceil(completedTransfers.length / itemsPerPage);
+      console.log(currentCompletedPage);
+      if (currentCompletedPage > totalPages) {
+        currentCompletedPage = Math.max(1, totalPages); // fallback to 1 if totalPages is 0
+      }
       dashboard.completed.innerHTML = '';
       const start = (currentCompletedPage - 1) * itemsPerPage;
       const end = start + itemsPerPage;
@@ -617,7 +655,6 @@
         dashboard.completed.appendChild(renderTransferItem(item));
       });
 
-      const totalPages = Math.ceil(completedTransfers.length / itemsPerPage);
       renderPaginationControls(totalPages);
 
       document.getElementById("removeCompletedTransfersBtn").disabled = completedTransfers.length == 0
@@ -627,31 +664,58 @@
       const controlElements = dashboard.completedPagination;
       controlElements.forEach(controls => {
         controls.innerHTML = '';
-
         if (totalPages <= 1) return;
 
-        const prevBtn = document.createElement('button');
-        prevBtn.textContent = '⬅ Prev';
-        prevBtn.disabled = currentCompletedPage === 1;
-        prevBtn.onclick = () => {
-          setCurrentCompletedPage(currentCompletedPage - 1);
-          renderCompletedTransfersPage();
-        };
+        function createButton(text, page, disabled = false) {
+          const btn = document.createElement('button');
+          btn.textContent = text;
+          btn.disabled = disabled;
+          btn.onclick = () => {
+            setCurrentCompletedPage(page);
+            renderCompletedTransfersPage();
+          };
+          if (page === currentCompletedPage && !isNaN(page)) {
+            btn.classList.add("active");
+          }
+          return btn;
+        }
 
-        const nextBtn = document.createElement('button');
-        nextBtn.textContent = 'Next ➡';
-        nextBtn.disabled = currentCompletedPage === totalPages;
-        nextBtn.onclick = () => {
-          setCurrentCompletedPage(currentCompletedPage + 1);
-          renderCompletedTransfersPage();
-        };
+        // ⬅ Prev
+        controls.appendChild(createButton('⬅ Prev', currentCompletedPage - 1, currentCompletedPage === 1));
 
-        const info = document.createElement('span');
-        info.textContent = `Page ${currentCompletedPage} of ${totalPages}`;
+        // Page numbers
+        let startPage = Math.max(1, currentCompletedPage - 2);
+        let endPage = Math.min(totalPages, currentCompletedPage + 2);
 
-        controls.appendChild(prevBtn);
-        controls.appendChild(info);
-        controls.appendChild(nextBtn);
+        if (startPage > 1) {
+          controls.appendChild(createButton('1', 1));
+          if (startPage > 2) {
+            const dots = document.createElement('span');
+            dots.textContent = '...';
+            controls.appendChild(dots);
+          }
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+          const pageBtn = createButton(i.toString(), i);
+          if (i === currentCompletedPage) {
+            pageBtn.disabled = true;
+            pageBtn.style.fontWeight = "bold";
+          }
+          controls.appendChild(pageBtn);
+        }
+
+        if (endPage < totalPages) {
+          if (endPage < totalPages - 1) {
+            const dots = document.createElement('span');
+            dots.textContent = '...';
+            controls.appendChild(dots);
+          }
+          controls.appendChild(createButton(totalPages.toString(), totalPages));
+        }
+
+        // Next ➡
+        controls.appendChild(createButton('Next ➡', currentCompletedPage + 1, currentCompletedPage === totalPages));
       });
     }
 
