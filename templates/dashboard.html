@@ -435,9 +435,15 @@
         display: block;
       }
 
+      .completed-pagination.desktop-only,
       .desktop-only {
         display: none;
       }
+    }
+
+    .completed-pagination {
+      display: flex;
+      justify-items: center;
     }
   </style>
 </head>
@@ -473,6 +479,7 @@
       <div class="pagination completed-pagination desktop-only"></div>
       <!-- Swiper container only for mobile -->
       <div class="swiper-container mobile-only">
+        <div class="pagination-display" style="text-align: center;"></div>
         <div class="swiper-wrapper" id="completed-swiper-wrapper">
           <!-- JS will populate slides -->
         </div>
@@ -522,6 +529,7 @@
     function setCurrentCompletedPage(page) {
       currentCompletedPage = page;
       localStorage.setItem('currentCompletedPage', page);
+      updatePageDisplay();
     }
 
     function toggleSection(section) {
@@ -673,7 +681,8 @@
       const totalPages = Math.ceil(completedTransfers.length / itemsPerPage);
       console.log(currentCompletedPage);
       if (currentCompletedPage > totalPages) {
-        currentCompletedPage = Math.max(1, totalPages); // fallback to 1 if totalPages is 0
+        setCurrentCompletedPage(Math.max(1, totalPages)); // fallback to 1 if totalPages is 0
+        window.completedSwiper.slideTo(currentCompletedPage);
       }
       dashboard.completed.innerHTML = '';
       const start = (currentCompletedPage - 1) * itemsPerPage;
@@ -684,10 +693,9 @@
       });
 
       renderPaginationControls(totalPages);
+      renderMobileTransfers();
 
       document.getElementById("removeCompletedTransfersBtn").disabled = completedTransfers.length == 0
-
-      renderMobileTransfers();
     }
 
     function renderPaginationControls(totalPages) {
@@ -993,7 +1001,19 @@
         loop: false,
         spaceBetween: 16,
         slidesPerView: 1,
+        initialSlide: currentCompletedPage - 1
       });
+      window.completedSwiper.on('slideChange', () => {
+        setCurrentCompletedPage(window.completedSwiper.activeIndex + 1);
+      })
+      updatePageDisplay();
+    }
+
+    function updatePageDisplay() {
+      const totalPages = Math.ceil(completedTransfers.length / itemsPerPage);
+      document.querySelectorAll(".pagination-display").forEach(ele => {
+        ele.innerText = `Page ${currentCompletedPage} of ${totalPages}`;
+      })
     }
   </script>
 </body>
