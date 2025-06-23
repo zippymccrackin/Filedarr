@@ -469,20 +469,22 @@
         ✅ Completed Transfers
         <span id="completed-toggle">[-]</span>
       </h2>
-      <button onclick="removeAllCompleted()" id="removeCompletedTransfersBtn"
-        style="font-size: 0.8em; padding: 4px 10px; background: #c62828; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%">
-        ✖ Remove All Completed Transfers
-      </button>
-      <div class="pagination completed-pagination desktop-only"></div>
-      <!-- Swiper container only for mobile -->
-      <div class="swiper-container">
-        <div class="pagination-display mobile-only" style="text-align: center;"></div>
-        <div class="swiper-wrapper" id="completed-swiper-wrapper">
-          <!-- JS will populate slides -->
+      <div id="completed-transfers">
+        <button onclick="removeAllCompleted()" id="removeCompletedTransfersBtn"
+          style="font-size: 0.8em; padding: 4px 10px; background: #c62828; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%">
+          ✖ Remove All Completed Transfers
+        </button>
+        <div class="pagination completed-pagination desktop-only"></div>
+        <!-- Swiper container only for mobile -->
+        <div class="swiper-container">
+          <div class="pagination-display mobile-only" style="text-align: center;"></div>
+          <div class="swiper-wrapper" id="completed-swiper-wrapper">
+            <!-- JS will populate slides -->
+          </div>
         </div>
+        <!-- Desktop pagination -->
+        <div class="pagination desktop-only completed-pagination"></div>
       </div>
-      <!-- Desktop pagination -->
-      <div class="pagination desktop-only completed-pagination"></div>
     </div>
   </div>
 
@@ -995,7 +997,7 @@
     function updatePageDisplay() {
       const totalPages = Math.ceil(completedTransfers.length / itemsPerPage);
       document.querySelectorAll(".pagination-display").forEach(ele => {
-        if( completedTransfers.length == 0 ) {
+        if (completedTransfers.length == 0) {
           ele.classList.add("hidden");
         }
         else {
