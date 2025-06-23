@@ -978,17 +978,20 @@
       }
 
       window.completedSwiper = new Swiper('.swiper-container', {
+        autoHeight: true,
         direction: 'horizontal',
         loop: false,
         spaceBetween: 16,
         slidesPerView: 1,
+        observer: true,
+        observeParents: true,
         initialSlide: currentCompletedPage - 1
       });
       window.completedSwiper.on('slideChange', () => {
         setCurrentCompletedPage(window.completedSwiper.activeIndex + 1);
       })
       updatePageDisplay();
-      
+
       renderPaginationControls(totalPages);
       document.getElementById("removeCompletedTransfersBtn").disabled = completedTransfers.length == 0
     }
