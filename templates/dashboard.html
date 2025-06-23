@@ -998,7 +998,13 @@
     function updatePageDisplay() {
       const totalPages = Math.ceil(completedTransfers.length / itemsPerPage);
       document.querySelectorAll(".pagination-display").forEach(ele => {
-        ele.innerText = `Page ${currentCompletedPage} of ${Math.max(1, totalPages)}`;
+        if( completedTransfers.length == 0 ) {
+          ele.classList.add("hidden");
+        }
+        else {
+          ele.classList.remove("hidden");
+          ele.innerText = `Page ${currentCompletedPage} of ${Math.max(1, totalPages)}`;
+        }
       })
     }
   </script>
