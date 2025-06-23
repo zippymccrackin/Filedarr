@@ -952,7 +952,6 @@
 
       if (currentCompletedPage > totalPages) {
         setCurrentCompletedPage(Math.max(1, totalPages)); // fallback to 1 if totalPages is 0
-        window.completedSwiper.slideTo(currentCompletedPage);
       }
 
       for (let page = 1; page <= totalPages; page++) {
@@ -988,7 +987,7 @@
         initialSlide: currentCompletedPage - 1
       });
       window.completedSwiper.on('slideChange', () => {
-        setCurrentCompletedPage(window.completedSwiper.activeIndex + 1);
+        setCurrentCompletedPage(Math.min(totalPages, window.completedSwiper.activeIndex + 1));
       })
       updatePageDisplay();
 
