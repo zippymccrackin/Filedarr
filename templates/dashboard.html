@@ -478,15 +478,13 @@
       </button>
       <div class="pagination completed-pagination desktop-only"></div>
       <!-- Swiper container only for mobile -->
-      <div class="swiper-container mobile-only">
-        <div class="pagination-display" style="text-align: center;"></div>
+      <div class="swiper-container">
+        <div class="pagination-display mobile-only" style="text-align: center;"></div>
         <div class="swiper-wrapper" id="completed-swiper-wrapper">
           <!-- JS will populate slides -->
         </div>
       </div>
-
       <!-- Desktop pagination -->
-      <div id="completed-transfers" class="desktop-only"></div>
       <div class="pagination desktop-only completed-pagination"></div>
     </div>
   </div>
@@ -504,7 +502,6 @@
   <script>
     const dashboard = {
       current: document.getElementById('current-transfers'),
-      completed: document.getElementById('completed-transfers'),
       completedPagination: document.querySelectorAll('.completed-pagination'),
     };
 
@@ -675,27 +672,6 @@
       }
 
       return transferContainer;
-    }
-
-    function renderCompletedTransfersPage() {
-      const totalPages = Math.ceil(completedTransfers.length / itemsPerPage);
-      console.log(currentCompletedPage);
-      if (currentCompletedPage > totalPages) {
-        setCurrentCompletedPage(Math.max(1, totalPages)); // fallback to 1 if totalPages is 0
-        window.completedSwiper.slideTo(currentCompletedPage);
-      }
-      dashboard.completed.innerHTML = '';
-      const start = (currentCompletedPage - 1) * itemsPerPage;
-      const end = start + itemsPerPage;
-      const pageItems = completedTransfers.slice(start, end);
-      pageItems.forEach(item => {
-        dashboard.completed.appendChild(renderTransferItem(item));
-      });
-
-      renderPaginationControls(totalPages);
-      renderMobileTransfers();
-
-      document.getElementById("removeCompletedTransfersBtn").disabled = completedTransfers.length == 0
     }
 
     function renderPaginationControls(totalPages) {
@@ -893,10 +869,10 @@
           }
           break;
         case "removeall":
-          const removedElements = document.querySelectorAll("#completed-transfers .transfer-container");
+          const removedElements = document.querySelectorAll("#completed-swiper-wrapper .swiper-slide");
 
           if (removedElements.length > 0) {
-            document.getElementById("completed-transfers").classList.add("fade-out-up");
+            document.getElementById("completed-swiper-wrapper").classList.add("fade-out-up");
 
             setTimeout(() => {
               completedTransfers = [];
@@ -968,11 +944,16 @@
       };
     }
 
-    function renderMobileTransfers() {
+    function renderCompletedTransfersPage() {
       const wrapper = document.getElementById('completed-swiper-wrapper');
       wrapper.innerHTML = '';
 
       const totalPages = Math.ceil(completedTransfers.length / itemsPerPage);
+
+      if (currentCompletedPage > totalPages) {
+        setCurrentCompletedPage(Math.max(1, totalPages)); // fallback to 1 if totalPages is 0
+        window.completedSwiper.slideTo(currentCompletedPage);
+      }
 
       for (let page = 1; page <= totalPages; page++) {
         const slide = document.createElement('div');
@@ -1007,12 +988,15 @@
         setCurrentCompletedPage(window.completedSwiper.activeIndex + 1);
       })
       updatePageDisplay();
+      
+      renderPaginationControls(totalPages);
+      document.getElementById("removeCompletedTransfersBtn").disabled = completedTransfers.length == 0
     }
 
     function updatePageDisplay() {
       const totalPages = Math.ceil(completedTransfers.length / itemsPerPage);
       document.querySelectorAll(".pagination-display").forEach(ele => {
-        ele.innerText = `Page ${currentCompletedPage} of ${totalPages}`;
+        ele.innerText = `Page ${currentCompletedPage} of ${Math.max(1, totalPages)}`;
       })
     }
   </script>
