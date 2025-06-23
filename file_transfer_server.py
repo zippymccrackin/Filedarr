@@ -311,5 +311,4 @@ if __name__ == '__main__':
     os.makedirs("static", exist_ok=True)
     init_db()
     
-    from waitress import serve
-    serve(app, host='0.0.0.0', port=3565)
+    app.run(host='0.0.0.0', port=3565, threaded=True)
