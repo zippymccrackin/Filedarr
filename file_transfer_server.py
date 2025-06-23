@@ -211,6 +211,9 @@ def receive_status():
 
 @app.route('/events')
 def events():
+    client_ip = request.remote_addr
+    print(f"[Client connected] IP: {client_ip}")
+
     def event_stream():
         messages = []
         queue_index = 0
@@ -230,6 +233,9 @@ def events():
 
 @app.route("/transfer/<transfer_id>", methods=["DELETE"])
 def delete_transfer(transfer_id):
+    client_ip = request.remote_addr
+    print(f"[Client request] Delete request from IP: {client_ip}: {transfer_id}")
+
     removed = False
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
@@ -247,6 +253,9 @@ def delete_transfer(transfer_id):
 
 @app.route("/transfer/all", methods=["DELETE"])
 def delete_transfer_all():
+    client_ip = request.remote_addr
+    print(f"[Client request] Delete all request from IP: {client_ip}")
+
     removed = False
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
@@ -301,5 +310,6 @@ if __name__ == '__main__':
     os.makedirs("templates", exist_ok=True)
     os.makedirs("static", exist_ok=True)
     init_db()
-    #print("Loaded saved transfers:", load_all_transfers())
-    app.run(host='0.0.0.0', port=3565, threaded=True)
+    
+    from waitress import serve
+    serve(app, host='0.0.0.0', port=3565)
