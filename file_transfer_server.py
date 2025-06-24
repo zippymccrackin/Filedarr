@@ -1,24 +1,21 @@
-from flask import Flask, request, jsonify, render_template, Response, send_from_directory
-from flask_cors import CORS
-from threading import Lock
+from quart import Quart, request, jsonify, render_template, Response, send_from_directory
+from quart_cors import cors
 import sqlite3
 import json
-import time
 import os
 import requests
+import asyncio
 from dotenv import load_dotenv
-import time
+from datetime import datetime
 
 load_dotenv()
 
-app = Flask(__name__, template_folder="templates", static_folder="static")
-app.config["TEMPLATES_AUTO_RELOAD"] = True
+app = Quart(__name__, template_folder="templates", static_folder="static")
+app = cors(app)
 app.debug = True
-CORS(app)
 
 DB_FILE = "transfers.db"
 clients = []
-lock = Lock()
 
 # --- DB Setup ---
 def init_db():
@@ -60,18 +57,9 @@ def load_all_transfers():
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('SELECT data FROM transfers')
-        rows = c.fetchall()
-        return [json.loads(row[0]) for row in rows]
+        return [json.loads(row[0]) for row in c.fetchall()]
 
 # --- Helpers ---
-def get_transfers():
-    transfers = []
-    with sqlite3.connect(DB_FILE) as conn:
-        c = conn.cursor()
-        c.execute('SELECT data FROM transfers')
-        for row in c.fetchall():
-            transfers.append(json.loads(row[0]))
-    return transfers
 
 def get_tvdb_token(api_key):
     url = "https://api4.thetvdb.com/v4/login"
@@ -180,13 +168,13 @@ def lookup_tmdb_info(tmdbid, api_key):
 
 # --- Routes ---
 @app.route('/')
-def dashboard():
-    return render_template("dashboard.html")
+async def dashboard():
+    return await render_template("dashboard.html")
 
 @app.route('/', methods=['POST'])
-def receive_status():
-    data = request.get_json()
-    data["timestamp"] = time.time()
+async def receive_status():
+    data = await request.get_json()
+    data["timestamp"] = datetime.now().timestamp()
     id = data["id"]
     status = "incomplete" if data["percent_complete"] != "100%" else "complete"
 
@@ -202,37 +190,35 @@ def receive_status():
         if info:
             data["tmdb"] = info
 
-    with lock:
-        save_transfer(id, status, data)
-        for client in clients:
-            client.append({"action": "update", "data": data})
+    save_transfer(id, status, data)
+    for client in clients:
+        client.put_nowait({"action": "update", "data": data})
 
     return jsonify({"status": "ok"})
 
 @app.route('/events')
-def events():
+async def events():
+    from asyncio import Queue
+    q = Queue()
+    clients.append(q)
     client_ip = request.remote_addr
     print(f"[Client connected] IP: {client_ip}")
-
-    def event_stream():
-        messages = []
-        queue_index = 0
-        clients.append(messages)
-
+    
+    await q.put({"action": "init", "data": load_all_transfers()})
+    
+    async def event_stream():
         try:
-            messages.append({"action": "init", "data": get_transfers()})
             while True:
-                while queue_index < len(messages):
-                    yield f"data: {json.dumps(messages[queue_index])}\n\n"
-                    queue_index += 1
-                time.sleep(1)
-        except GeneratorExit:
-            clients.remove(messages)
+                msg = await q.get()
+                yield f"data: {json.dumps(msg)}\n\n"
+        except asyncio.CancelledError:
+            print(f"[Client disconnected] {client_ip}")
+            clients.remove(q)
 
-    return Response(event_stream(), mimetype='text/event-stream')
+    return Response(event_stream(), content_type='text/event-stream')
 
 @app.route("/transfer/<transfer_id>", methods=["DELETE"])
-def delete_transfer(transfer_id):
+async def delete_transfer(transfer_id):
     client_ip = request.remote_addr
     print(f"[Client request] Delete request from IP: {client_ip}: {transfer_id}")
 
@@ -247,12 +233,12 @@ def delete_transfer(transfer_id):
     if removed:
         # notify clients
         for client in clients:
-            client.append({"action": "remove", "data": {"id": transfer_id}})
+            client.put_nowait({"action": "remove", "data": {"id": transfer_id}})
 
     return jsonify({"removed": removed}), 200
 
 @app.route("/transfer/all", methods=["DELETE"])
-def delete_transfer_all():
+async def delete_transfer_all():
     client_ip = request.remote_addr
     print(f"[Client request] Delete all request from IP: {client_ip}")
 
@@ -267,7 +253,7 @@ def delete_transfer_all():
     if removed:
         # notify clients
         for client in clients:
-            client.append({"action": "removeAll", "data": {}})
+            client.put_nowait({"action": "removeAll", "data": {}})
 
     return jsonify({"removed": removed}), 200
 
@@ -278,32 +264,32 @@ def bad_request(e):
 
 # Favicons
 @app.route('/favicon.ico')
-def favicon():
-    return send_from_directory(os.path.join(app.root_path, 'static'), 'images/favicon.ico', mimetype='image/x-icon')
+async def favicon():
+    return await send_from_directory(os.path.join(app.root_path, 'static'), 'images/favicon.ico', mimetype='image/x-icon')
 @app.route('/favicon.svg')
-def faviconsvg():
-    return send_from_directory(os.path.join(app.root_path, 'static'), 'images/favicon.svg', mimetype='image/x-icon')
+async def faviconsvg():
+    return await send_from_directory(os.path.join(app.root_path, 'static'), 'images/favicon.svg', mimetype='image/x-icon')
 @app.route('/apple-touch-icon.png')
-def apple_touch_icon():
-    return send_from_directory(os.path.join(app.root_path, 'static'), 'images/apple-touch-icon.png', mimetype='image/png')
+async def apple_touch_icon():
+    return await send_from_directory(os.path.join(app.root_path, 'static'), 'images/apple-touch-icon.png', mimetype='image/png')
 @app.route('/favicon-96x96.png')
-def png_icon_9696():
-    return send_from_directory(os.path.join(app.root_path, 'static'), 'images/favicon-96x96.png', mimetype='image/png')
+async def png_icon_9696():
+    return await send_from_directory(os.path.join(app.root_path, 'static'), 'images/favicon-96x96.png', mimetype='image/png')
 @app.route('/favicon-32x32.png')
-def png_icon_3232():
-    return send_from_directory(os.path.join(app.root_path, 'static'), 'images/favicon-32x32.png', mimetype='image/png')
+async def png_icon_3232():
+    return await send_from_directory(os.path.join(app.root_path, 'static'), 'images/favicon-32x32.png', mimetype='image/png')
 @app.route('/favicon-16x16.png')
-def png_icon_1616():
-    return send_from_directory(os.path.join(app.root_path, 'static'), 'images/favicon-16x16.png', mimetype='image/png')
+async def png_icon_1616():
+    return await send_from_directory(os.path.join(app.root_path, 'static'), 'images/favicon-16x16.png', mimetype='image/png')
 @app.route('/web-app-manifest-192x192.png')
-def png_icon_192192():
-    return send_from_directory(os.path.join(app.root_path, 'static'), 'images/web-app-manifest-192x192.png', mimetype='image/png')
+async def png_icon_192192():
+    return await send_from_directory(os.path.join(app.root_path, 'static'), 'images/web-app-manifest-192x192.png', mimetype='image/png')
 @app.route('/web-app-manifest-512x512.png')
-def png_icon_512512():
-    return send_from_directory(os.path.join(app.root_path, 'static'), 'images/web-app-manifest-512x512.png', mimetype='image/png')
+async def png_icon_512512():
+    return await send_from_directory(os.path.join(app.root_path, 'static'), 'images/web-app-manifest-512x512.png', mimetype='image/png')
 @app.route('/site.webmanifest')
-def site_manifest():
-    return send_from_directory(os.path.join(app.root_path, 'static'), 'site.webmanifest', mimetype='application/manifest+json')
+async def site_manifest():
+    return await send_from_directory(os.path.join(app.root_path, 'static'), 'site.webmanifest', mimetype='application/manifest+json')
 
 # --- Entry Point ---
 if __name__ == '__main__':
@@ -311,4 +297,5 @@ if __name__ == '__main__':
     os.makedirs("static", exist_ok=True)
     init_db()
     
-    app.run(host='0.0.0.0', port=3565, threaded=True)
+    import uvicorn
+    uvicorn.run(app, host='0.0.0.0', port=3565)
