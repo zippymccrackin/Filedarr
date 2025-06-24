@@ -354,4 +354,4 @@ if __name__ == '__main__':
     init_db()
     
     import uvicorn
-    uvicorn.run(app, host='0.0.0.0', port=3565, loop='asyncio' http='h11')
+    uvicorn.run(app, host='0.0.0.0', port=3565, loop='asyncio', http='h11')
