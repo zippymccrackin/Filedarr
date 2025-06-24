@@ -257,7 +257,7 @@ async def events():
         try:
             while True:
                 try:
-                    msg = await asyncio.wait_for(q.get(), timeout=15)
+                    msg = await asyncio.wait_for(q.get(), timeout=5)
                     yield f"data: {json.dumps(msg)}\n\n"
                 except asyncio.TimeoutError:
                     # keep alive
@@ -269,7 +269,8 @@ async def events():
     return Response(event_stream(), headers={
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
-        "Connection": "keep-alive"
+        "Connection": "keep-alive",
+        "Transfer-Encoding": "chunked"
     })
 
 @app.route("/transfer/<transfer_id>", methods=["DELETE"])
@@ -353,4 +354,4 @@ if __name__ == '__main__':
     init_db()
     
     import uvicorn
-    uvicorn.run(app, host='0.0.0.0', port=3565)
+    uvicorn.run(app, host='0.0.0.0', port=3565, http='h11')
