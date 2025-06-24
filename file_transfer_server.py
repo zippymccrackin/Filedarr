@@ -38,7 +38,7 @@ async def remove_stale_transfers():
                     SELECT id, data FROM transfers WHERE status = ?
                 ''', (INCOMPLETE_STATUS,))
                 rows = c.fetchall()
-                for id, _, data_str in rows:
+                for id, data_str in rows:
                     data = json.loads(data_str)
                     last_updated = data.get("timestamp", 0)
                     if last_updated < threshold:
