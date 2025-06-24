@@ -256,13 +256,21 @@ async def events():
     async def event_stream():
         try:
             while True:
-                msg = await q.get()
-                yield f"data: {json.dumps(msg)}\n\n"
+                try:
+                    msg = await asyncio.wait_for(q.get(), timeout=15)
+                    yield f"data: {json.dumps(msg)}\n\n"
+                except asyncio.TimeoutError:
+                    # keep alive
+                    yield ": keep-alive\n\n"
         except asyncio.CancelledError:
             print(f"[Client disconnected] {client_ip}")
             clients.remove(q)
 
-    return Response(event_stream(), content_type='text/event-stream')
+    return Response(event_stream(), headers={
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive"
+    })
 
 @app.route("/transfer/<transfer_id>", methods=["DELETE"])
 async def delete_transfer(transfer_id):
