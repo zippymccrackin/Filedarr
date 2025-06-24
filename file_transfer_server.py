@@ -17,6 +17,45 @@ app.debug = True
 DB_FILE = "transfers.db"
 clients = []
 
+INCOMPLETE_STATUS = "incomplete"
+COMPLETE_STATUS = "complete"
+STALE_STATUS = "stale"
+
+# --- Background Tasks ---
+@app.before_serving
+async def start_background_tasks():
+    app.add_background_task(remove_stale_transfers)
+    
+async def remove_stale_transfers():
+    while True:
+        try:
+            threshold = datetime.now().timestamp() - 30
+            stale_datas = []
+
+            with sqlite3.connect(DB_FILE) as conn:
+                c = conn.cursor()
+                c.execute('''
+                    SELECT id, data FROM transfers WHERE status = ?
+                ''', (INCOMPLETE_STATUS,))
+                rows = c.fetchall()
+                for id, _, data_str in rows:
+                    data = json.loads(data_str)
+                    last_updated = data.get("timestamp", 0)
+                    if last_updated < threshold:
+                        c.execute('UPDATE transfers SET status = ? WHERE id = ?', (STALE_STATUS, id))
+                        print(f"[Background Task] Updated (ID {data.meta.title} {id}) to Stale status")
+                        stale_datas.append(data)
+
+            if stale_datas:
+                for client in clients:
+                    for stale_data in stale_datas:
+                        client.put_nowait({"action": "update", "data": stale_data})
+        except Exception as e:
+            print(f"[Stale cleanup error] {e}")
+
+        await asyncio.sleep(10)
+
+
 # --- DB Setup ---
 def init_db():
     with sqlite3.connect(DB_FILE) as conn:
@@ -54,10 +93,16 @@ def save_transfer(id, status, data):
         conn.commit()
 
 def load_all_transfers():
+    transfers = []
+    
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('SELECT data FROM transfers')
-        return [json.loads(row[0]) for row in c.fetchall()]
+        for row in c.fetchall():
+            data = json.loads(row[0])
+            data['status'] = row[1]
+            transfers.append(data)
+    return transfers
 
 # --- Helpers ---
 
@@ -74,7 +119,7 @@ def get_cached_tvdb_info(tvdbid):
         row = c.fetchone()
         if row:
             cached_data, cached_time = row
-            if time.time() - cached_time < 86400:  # 24 hours
+            if datetime.now().timestamp() - cached_time < 86400:  # 24 hours
                 return json.loads(cached_data)
     return None
 
@@ -84,7 +129,7 @@ def cache_tvdb_info(tvdbid, data):
         c.execute('''
             INSERT OR REPLACE INTO tvdb_cache (tvdbid, data, timestamp)
             VALUES (?, ?, ?)
-        ''', (tvdbid, json.dumps(data), time.time()))
+        ''', (tvdbid, json.dumps(data), datetime.now().timestamp()))
         conn.commit()
 
 def lookup_tvdb_info(tvdbid, api_key):
@@ -126,7 +171,7 @@ def get_cached_tmdb_info(tmdbid):
         row = c.fetchone()
         if row:
             cached_data, cached_time = row
-            if time.time() - cached_time < 86400:  # 24 hours
+            if datetime.now().timestamp() - cached_time < 86400:  # 24 hours
                 return json.loads(cached_data)
     return None
 
@@ -136,7 +181,7 @@ def cache_tmdb_info(tmdbid, data):
         c.execute('''
             INSERT OR REPLACE INTO tmdb_cache (tmdbid, data, timestamp)
             VALUES (?, ?, ?)
-        ''', (tmdbid, json.dumps(data), time.time()))
+        ''', (tmdbid, json.dumps(data), datetime.now().timestamp()))
         conn.commit()
 
 def lookup_tmdb_info(tmdbid, api_key):
@@ -176,7 +221,7 @@ async def receive_status():
     data = await request.get_json()
     data["timestamp"] = datetime.now().timestamp()
     id = data["id"]
-    status = "incomplete" if data["percent_complete"] != "100%" else "complete"
+    status = INCOMPLETE_STATUS if data["percent_complete"] != "100%" else COMPLETE_STATUS
 
     tvdbid = data.get("meta", {}).get("tvdbid")
     if tvdbid:
@@ -191,6 +236,8 @@ async def receive_status():
             data["tmdb"] = info
 
     save_transfer(id, status, data)
+    
+    data["staus"] = status
     for client in clients:
         client.put_nowait({"action": "update", "data": data})
 
@@ -247,7 +294,7 @@ async def delete_transfer_all():
         c = conn.cursor()
         c.execute('''
             DELETE FROM transfers WHERE status = ?
-        ''', ("complete",))
+        ''', (COMPLETE_STATUS,))
         conn.commit()
         removed = c.rowcount > 0
     if removed:

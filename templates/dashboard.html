@@ -738,8 +738,8 @@
 
       const allTransfers = Object.values(data).flat();
 
-      const current = sortTransfersByETA(allTransfers.filter(t => parseFloat(t.percent_complete) < 100));
-      completedTransfers = allTransfers.filter(t => parseFloat(t.percent_complete) >= 100);
+      const current = sortTransfersByETA(allTransfers.filter(t => t.status?.toLowerCase() == "incomplete"));
+      completedTransfers = allTransfers.filter(t => t.status?.toLowerCase() == "complete" || t.status?.toLowerCase() == "stale");
 
       current.forEach(item => {
         dashboard.current.appendChild(renderTransferItem(item));
