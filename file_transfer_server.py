@@ -43,7 +43,7 @@ async def remove_stale_transfers():
                     last_updated = data.get("timestamp", 0)
                     if last_updated < threshold:
                         c.execute('UPDATE transfers SET status = ? WHERE id = ?', (STALE_STATUS, id))
-                        print(f"[Background Task] Updated (ID {data.meta.title} {id}) to Stale status")
+                        print(f"[Background Task] Updated ID {id} to Stale status")
                         stale_datas.append(data)
 
             if stale_datas:
