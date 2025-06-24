@@ -97,7 +97,7 @@ def load_all_transfers():
     
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
-        c.execute('SELECT data FROM transfers')
+        c.execute('SELECT data, status FROM transfers')
         for row in c.fetchall():
             data = json.loads(row[0])
             data['status'] = row[1]
