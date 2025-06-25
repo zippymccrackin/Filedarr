@@ -650,8 +650,8 @@
         details.style.display = details.style.display === 'none' || details.style.display === '' ? 'block' : 'none';
       });
 
-      // Only show remove button if it's completed
-      if (percent >= 100) {
+      // Only show remove button if it's completed or stale
+      if (item.status.toLowerCase() == "complete" || item.status.toLowerCase() == "stale") {
         const removeBtn = document.createElement('button');
         removeBtn.className = 'remove-btn';
         removeBtn.textContent = '✖';
