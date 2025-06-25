@@ -113,8 +113,9 @@ if( $env:Sonarr_SourcePath ) {
     $meta["deletedPaths"]             = $env:Radarr_DeletedPaths
     $meta["deletedDateAdded"]         = $env:Radarr_DeletedDateAdded
 }
+$uuid = New-Guid
 
-$webhookUrl = "http://localhost:3565"
+$webhookUrl = "http://localhost:3565/transfer/$uuid"
 
 $chunkSize_streaming = 1MB
 $chunkSize_notStreaming = 4MB
@@ -129,7 +130,6 @@ if( $totalSize -eq 0 ) {
     Write-Error "$sourceFile file size is 0"
     exit 1
 }
-$uuid = New-Guid
 $filename = [System.IO.Path]::getFileName($destFile)
 $drive = [System.IO.Path]::getPathRoot($destFile)
 $staging = $drive + "tmp\staging\" + $filename
