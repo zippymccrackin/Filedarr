@@ -13,7 +13,7 @@
   <link rel="manifest" href="/site.webmanifest" />
 
   <link rel="stylesheet" href="/style.css" />
-  
+
   <link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css" />
   <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
 </head>
@@ -222,6 +222,10 @@
       const details = transfer.querySelector('.transfer-details');
       header.addEventListener('click', () => {
         details.style.display = details.style.display === 'none' || details.style.display === '' ? 'block' : 'none';
+
+        if (window.completedSwiper) {
+          window.completedSwiper.updateAutoHeight();
+        }
       });
 
       // Only show remove button if it's completed or stale
@@ -382,15 +386,15 @@
 
         // update in completed transfers if it does exist
         let updated = false;
-        for( let i=0; i<completedTransfers.length; i++ ) {
-          if( completedTransfers[i].id == data.id ) {
+        for (let i = 0; i < completedTransfers.length; i++) {
+          if (completedTransfers[i].id == data.id) {
             completedTransfers[i] = data;
             updated = true;
             break;
           }
         }
         // add to completed transfers if it doesn't exist
-        if( !updated ) {
+        if (!updated) {
           completedTransfers.push(data);
         }
         renderCompletedTransfersPage();
