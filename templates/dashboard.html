@@ -317,6 +317,8 @@
       const current = sortTransfersByETA(allTransfers.filter(t => t.status?.toLowerCase() == "incomplete"));
       completedTransfers = allTransfers.filter(t => t.status?.toLowerCase() == "complete" || t.status?.toLowerCase() == "stale");
 
+      console.log(allTransfers);
+
       current.forEach(item => {
         dashboard.current.appendChild(renderTransferItem(item));
       });
@@ -374,12 +376,24 @@
       const element = document.getElementById(data.id);
 
       if (data.status == "complete") { // let renderCompletedTransfersPage handle it because pagination
-        completedTransfers.push(data);
-        renderCompletedTransfersPage();
-
         if (element) {
           element.remove();
         }
+
+        // update in completed transfers if it does exist
+        let updated = false;
+        for( let i=0; i<completedTransfers.length; i++ ) {
+          if( completedTransfers[i].id == data.id ) {
+            completedTransfers[i] = data;
+            updated = true;
+            break;
+          }
+        }
+        // add to completed transfers if it doesn't exist
+        if( !updated ) {
+          completedTransfers.push(data);
+        }
+        renderCompletedTransfersPage();
 
         return;
       }
