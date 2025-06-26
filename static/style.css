@@ -1,0 +1,433 @@
+    :root {
+      --background-color-lightmode: #f4f4f4;
+      --background-color-darkmode: #1e1e1e;
+    }
+
+    html,
+    body {
+      box-sizing: border-box;
+      width: 100%;
+      overflow-x: clip;
+    }
+
+    body {
+      font-family: sans-serif;
+      background: var(--background-color-lightmode);
+      padding: 1em;
+      margin: 0;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    body.dark {
+      background: var(--background-color-darkmode);
+      color: #f0f0f0;
+    }
+
+    h1 {
+      font-size: 1.75em;
+      margin-bottom: 0.5em;
+    }
+
+    .section {
+      margin-bottom: 2em;
+    }
+
+    .section h2 {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 1.2em;
+      margin-top: 1em;
+      cursor: pointer;
+    }
+
+    .toggle-btn {
+      background: none;
+      border: none;
+      font-size: 1em;
+      color: inherit;
+      cursor: pointer;
+    }
+
+    .transfer {
+      background: #fff;
+      padding: 1em;
+      margin: 0.5em 0;
+      border-radius: 6px;
+      box-shadow: 0 0 6px rgba(0, 0, 0, 0.1);
+    }
+
+    body.dark .transfer {
+      background: #2c2c2c;
+    }
+
+    .progress-bar {
+      background: #ddd;
+      border-radius: 6px;
+      overflow: hidden;
+      height: 20px;
+      margin-top: 4px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      transition: width 0.5s, background 0.5s;
+    }
+
+    .controls {
+      margin-bottom: 1em;
+    }
+
+    button {
+      margin-right: 10px;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin-top: 1em;
+    }
+
+    @media (max-width: 600px) {
+      .transfer {
+        font-size: 0.9em;
+      }
+
+      h1 {
+        font-size: 1.3em;
+      }
+    }
+
+    .progress-bar {
+      height: 8px;
+      width: 100%;
+      background-color: #333;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      transition: width 0.4s ease;
+    }
+
+    *:has(.tooltiptext) {
+      position: relative;
+    }
+
+    .tooltiptext {
+      visibility: hidden;
+      width: 120px;
+      background-color: black;
+      color: #fff;
+      text-align: center;
+      padding: 5px 0;
+      border-radius: 6px;
+
+      /* Position the tooltip text - see examples below! */
+      position: absolute;
+      z-index: 1;
+    }
+
+    *:has(> .tooltiptext):hover .tooltiptext {
+      visibility: visible;
+    }
+
+    .remove-btn {
+      background: #c62828;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8em;
+      transition: background 0.3s ease;
+      float: right;
+      margin: 0;
+    }
+
+    #removeCompletedTransfersBtn[disabled] {
+      display: none;
+    }
+
+    .remove-btn:hover {
+      background: #b71c1c;
+    }
+
+    .transfer-container {
+      position: relative;
+    }
+
+    @keyframes fadeOutUp {
+      0% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      100% {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+    }
+
+    .fade-out-up {
+      animation: fadeOutUp 0.4s ease forwards;
+    }
+
+    #header {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .transfer {
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 15px;
+      background: #ddd;
+    }
+
+    body.dark .transfer {
+      background: #1e1e1e;
+      color: white;
+    }
+
+    .transfer-header {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 10px;
+      background: #eee;
+      margin-bottom: 10px;
+      color: black;
+    }
+
+    body.dark .transfer-header {
+      background: #222;
+      color: white;
+    }
+
+    .eta-speed {
+      font-size: 0.9em;
+      margin-top: 4px;
+    }
+
+    body.dark .eta-speed {
+      color: #ccc;
+    }
+
+    .speedFast {
+      color: green;
+    }
+
+    body.dark .speedFast {
+      color: lightgreen;
+    }
+
+    .speedMedium {
+      color: tomato;
+    }
+
+    body.dark .speedMedium {
+      color: orange;
+    }
+
+    .speedSlow {
+      color: red;
+    }
+
+    .episode-display {
+      color: black;
+    }
+
+    body.dark .episode-display {
+      color: #aaa;
+    }
+
+    .time-display {
+      font-size: 0.9em;
+      margin-top: 4px;
+      color: #333;
+    }
+
+    body.dark .time-display {
+      color: #ccc;
+    }
+
+    body.dark .controls button {
+      background: #333;
+    }
+
+    .transfer-details {
+      display: none;
+      font-size: 0.85em;
+      word-break: break-all;
+    }
+
+    body.dark .transfer-details {
+      color: #bbb;
+    }
+
+    section#top {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background-color: var(--background-color-lightmode);
+    }
+
+    body.dark section#top {
+      background-color: var(--background-color-darkmode);
+    }
+
+    .confirm-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 1000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      animation: fadeIn 0.3s ease forwards;
+    }
+
+    .confirm-dialog {
+      background: #222;
+      color: white;
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 300px;
+      text-align: center;
+      transform: scale(0.8);
+      opacity: 0;
+      animation: zoomIn 0.3s ease forwards;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .fade-out {
+      animation: fadeOut 0.2s ease forwards;
+    }
+
+    .dialog-out {
+      animation: zoomOut 0.2s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    @keyframes fadeOut {
+      from {
+        opacity: 1;
+      }
+
+      to {
+        opacity: 0;
+      }
+    }
+
+    @keyframes zoomIn {
+      from {
+        transform: scale(0.8);
+        opacity: 0;
+      }
+
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    @keyframes zoomOut {
+      from {
+        transform: scale(1);
+        opacity: 1;
+      }
+
+      to {
+        transform: scale(0.8);
+        opacity: 0;
+      }
+    }
+
+    .blur {
+      filter: blur(4px);
+      transition: filter 0.3s ease;
+    }
+
+    .pagination button {
+      padding: 6px 12px;
+      margin: 0 2px;
+      border: none;
+      border-radius: 20px;
+      background-color: #444;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.3s, transform 0.2s;
+    }
+
+    .pagination button:hover:not(:disabled) {
+      background-color: #666;
+      transform: translateY(-1px);
+    }
+
+    .pagination button:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+
+    .pagination button.active {
+      background-color: #2196f3;
+      font-weight: bold;
+    }
+
+    .pagination span {
+      padding: 6px 10px;
+      color: #aaa;
+      font-size: 14px;
+    }
+
+    .mobile-only {
+      display: none;
+    }
+
+    .desktop-only {
+      display: block;
+    }
+
+    @media (max-width: 768px) {
+      .mobile-only {
+        display: block;
+      }
+
+      .completed-pagination.desktop-only,
+      .desktop-only {
+        display: none;
+      }
+    }
+
+    .completed-pagination {
+      display: flex;
+      justify-items: center;
+    }
+
+    .swiper-autoheight {
+      overflow: hidden;
+    }
