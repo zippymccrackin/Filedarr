@@ -2,7 +2,7 @@ import requests
 import json
 import sqlite3
 from datetime import datetime
-from db_service import DB_FILE
+from app.db_service import DB_FILE
 
 def get_tvdb_token(api_key):
     url = "https://api4.thetvdb.com/v4/login"
