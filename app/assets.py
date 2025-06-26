@@ -3,7 +3,8 @@ from quart import Blueprint, send_from_directory
 
 assets_bp = Blueprint("assets", __name__)
 
-STATIC_IMAGE_PATH = os.path.join(os.getcwd(), "static", "images")
+STATIC_PATH = os.path.join(os.getcwd(), "static")
+STATIC_IMAGE_PATH = os.path.join(STATIC_PATH, "images")
 
 @assets_bp.route('/favicon.ico')
 async def favicon():
@@ -39,5 +40,8 @@ async def png_icon_512512():
 
 @assets_bp.route('/site.webmanifest')
 async def site_manifest():
-    manifest_path = os.path.join(os.getcwd(), "static")
-    return await send_from_directory(manifest_path, 'site.webmanifest', mimetype='application/manifest+json')
+    return await send_from_directory(STATIC_PATH, 'site.webmanifest', mimetype='application/manifest+json')
+
+@assets_bp.route('/style.css')
+async def stylesheet():
+    return await send_from_directory(STATIC_PATH, 'style.css', mimetype='text/css')
