@@ -1,130 +1,44 @@
-# Info required for script
-$sourceFile = ""
-$destFile = ""
-$meta = @{}
+# Load Listeners
+. "$PSScriptRoot\ps\core\listeners.ps1"
 
-# pull info if Sonarr
-if( $env:Sonarr_SourcePath ) {
-    $sourceFile = $env:Sonarr_SourcePath
-    $destFile = $env:Sonarr_DestinationPath
+# Load all hooks
+Get-ChildItem "$PSScriptRoot\ps\hooks\*.ps1" | ForEach-Object { . $_.FullName }
 
-    # all the info available from Sonarr env variables
-    $meta["instanceName"] = $env:Sonarr_InstanceName
-    $meta["name"] = $env:Sonarr_Series_Title
-    $meta["titleSlug"] = $env:Sonarr_Series_TitleSlug
-    $meta["seriesPath"] = $env:Sonarr_Series_Path
-    $meta["tvdbid"] = $env:Sonarr_Series_TvdbId
-    $meta["tvMazeId"] = $env:Sonarr_Series_TvMazeId
-    $meta["tmdbId"] = $env:Sonarr_Series_TmdbId
-    $meta["imdbId"] = $env:Sonarr_Series_ImdbId
-    $meta["seriesType"] = $env:Sonarr_Series_Type
-    $meta["originalLanguage"] = $env:Sonarr_Series_OriginalLanguage
-    $meta["genres"] = $env:Sonarr_Series_Genres
-    $meta["tags"] = $env:Sonarr_Series_Tags
+# Load services
+. "$PSScriptRoot\ps\core\services.ps1"
 
-    $meta["episodeCount"] = $env:Sonarr_EpisodeFile_EpisodeCount
-    $meta["episodeIds"] = $env:Sonarr_EpisodeFile_EpisodeIds
-    $meta["seasonNumber"] = $env:Sonarr_EpisodeFile_SeasonNumber
-    $meta["episodeNumber"] = $env:Sonarr_EpisodeFile_EpisodeNumbers
-    $meta["airDates"] = $env:Sonarr_EpisodeFile_EpisodeAirDates
-    $meta["airDatesUtc"] = $env:Sonarr_EpisodeFile_EpisodeAirDatesUtc
-    $meta["episodeTitles"] = $env:Sonarr_EpisodeFile_EpisodeTitles
-    $meta["episodeOverviews"] = $env:Sonarr_EpisodeFile_EpisodeOverviews
-    $meta["quality"] = $env:Sonarr_EpisodeFile_Quality
-    $meta["qualityVersion"] = $env:Sonarr_EpisodeFile_QualityVersion
-    $meta["releaseGroup"] = $env:Sonarr_EpisodeFile_ReleaseGroup
-    $meta["sceneName"] = $env:Sonarr_EpisodeFile_SceneName
+# Load all service scripts
+Get-ChildItem "$PSScriptRoot\ps\services\*.ps1" | ForEach-Object { . $_.FullName }
 
-    $meta["downloadClient"] = $env:Sonarr_Download_Client
-    $meta["downloadClientType"] = $env:Sonarr_Download_Client_Type
-    $meta["downloadId"] = $env:Sonarr_Download_Id
-
-    $meta["audioChannels"] = $env:Sonarr_EpisodeFile_MediaInfo_AudioChannels
-    $meta["audioCodec"] = $env:Sonarr_EpisodeFile_MediaInfo_AudioCodec
-    $meta["audioLanguages"] = $env:Sonarr_EpisodeFile_MediaInfo_AudioLanguages
-    $meta["languages"] = $env:Sonarr_EpisodeFile_MediaInfo_Languages
-    $meta["height"] = $env:Sonarr_EpisodeFile_MediaInfo_Height
-    $meta["width"] = $env:Sonarr_EpisodeFile_MediaInfo_Width
-    $meta["subtitles"] = $env:Sonarr_EpisodeFile_MediaInfo_Subtitles
-    $meta["videoCodec"] = $env:Sonarr_EpisodeFile_MediaInfo_VideoCodec
-    $meta["videoDynamicRangeType"] = $env:Sonarr_EpisodeFile_MediaInfo_VideoDynamicRangeType
-
-    $meta["customFormat"] = $env:Sonarr_EpisodeFile_CustomFormat
-    $meta["customFormatScore"] = $env:Sonarr_EpisodeFile_CustomFormatScore
-
-    $meta["seriesId"] = $env:Sonarr_Series_Id
-    $meta["applicationUrl"] = $env:Sonarr_ApplicationUrl
-    $meta["transferMode"] = $env:Sonarr_TransferMode
-
-    # Optional: deleted file metadata
-    $meta["deletedRelativePaths"] = $env:Sonarr_DeletedRelativePaths
-    $meta["deletedPaths"] = $env:Sonarr_DeletedPaths
-    $meta["deletedDateAdded"] = $env:Sonarr_DeletedDateAdded
-    $meta["deletedRecycleBinPaths"] = $env:Sonarr_DeletedRecycleBinPaths
-} elseif( $env:Radarr_SourcePath ) {
-    $sourceFile = $env:Radarr_SourcePath
-    $destFile = $env:Radarr_DestinationPath
-
-    $meta["instanceName"]             = $env:Radarr_InstanceName
-    $meta["applicationUrl"]           = $env:Radarr_ApplicationUrl
-    $meta["transferMode"]             = $env:Radarr_TransferMode
-
-    $meta["movieId"]                  = $env:Radarr_Movie_Id
-    $meta["name"]                     = $env:Radarr_Movie_Title
-    $meta["year"]                     = $env:Radarr_Movie_Year
-    $meta["tmdbid"]                   = $env:Radarr_Movie_TmdbId
-    $meta["imdbid"]                   = $env:Radarr_Movie_ImdbId
-    $meta["originalLanguage"]         = $env:Radarr_Movie_OriginalLanguage
-    $meta["genres"]                   = $env:Radarr_Movie_Genres
-    $meta["tags"]                     = $env:Radarr_Movie_Tags
-    $meta["inCinemas"]                = $env:Radarr_Movie_In_Cinemas_Date
-    $meta["physicalRelease"]          = $env:Radarr_Movie_Physical_Release_Date
-    $meta["overview"]                 = $env:Radarr_Movie_Overview
-
-    $meta["movieFileId"]              = $env:Radarr_MovieFile_Id
-    $meta["relativePath"]             = $env:Radarr_MovieFile_RelativePath
-    $meta["quality"]                  = $env:Radarr_MovieFile_Quality
-    $meta["qualityVersion"]           = $env:Radarr_MovieFile_QualityVersion
-    $meta["releaseGroup"]             = $env:Radarr_MovieFile_ReleaseGroup
-    $meta["sceneName"]                = $env:Radarr_MovieFile_SceneName
-
-    $meta["downloadClient"]           = $env:Radarr_Download_Client
-    $meta["downloadClientType"]       = $env:Radarr_Download_Client_Type
-    $meta["downloadId"]               = $env:Radarr_Download_Id
-
-    $meta["audioChannels"]            = $env:Radarr_MovieFile_MediaInfo_AudioChannels
-    $meta["audioCodec"]               = $env:Radarr_MovieFile_MediaInfo_AudioCodec
-    $meta["audioLanguages"]           = $env:Radarr_MovieFile_MediaInfo_AudioLanguages
-    $meta["languages"]                = $env:Radarr_MovieFile_MediaInfo_Languages
-    $meta["videoHeight"]              = $env:Radarr_MovieFile_MediaInfo_Height
-    $meta["videoWidth"]               = $env:Radarr_MovieFile_MediaInfo_Width
-    $meta["subtitles"]                = $env:Radarr_MovieFile_MediaInfo_Subtitles
-    $meta["videoCodec"]               = $env:Radarr_MovieFile_MediaInfo_VideoCodec
-    $meta["videoDynamicRange"]        = $env:Radarr_MovieFile_MediaInfo_VideoDynamicRangeType
-
-    $meta["customFormats"]            = $env:Radarr_MovieFile_CustomFormat
-    $meta["customFormatScore"]        = $env:Radarr_MovieFile_CustomFormatScore
-
-    $meta["moviePath"]                = $env:Radarr_Movie_Path
-    $meta["fullMovieFilePath"]        = $env:Radarr_MovieFile_Path
-
-    # Optional: Deleted file paths if applicable
-    $meta["deletedRelativePaths"]     = $env:Radarr_DeletedRelativePaths
-    $meta["deletedPaths"]             = $env:Radarr_DeletedPaths
-    $meta["deletedDateAdded"]         = $env:Radarr_DeletedDateAdded
+$data = @{
+    sourceFile = ""
+    destinationFile = ""
+    meta = @{}
 }
+
+# Fill the data from the services
+foreach ($listener in $Services) {
+    $data = & $listener $data
+}
+
+$sourceFile = $data['sourceFile']
+$destFile = $data['destinationFile']
+$meta = $data['meta']
+
+if (
+    [string]::IsNullOrWhiteSpace($sourceFile) -or
+    [string]::IsNullOrWhiteSpace($destFile) -or
+    -not (Test-Path $sourceFile)
+) {
+    Write-Host "Error: sourceFile or destFile is missing or source file does not exist."
+    exit 1
+}
+
+
+# Generate a tracking ID
 $uuid = New-Guid
 
-$webhookUrl = "http://localhost:3565/transfer/$uuid"
-
-$chunkSize_streaming = 1MB
-$chunkSize_notStreaming = 4MB
-$delayMs_streaming = 150
-$delayMs_notStreaming = 0
-
-$chunkSize = $chunkSize_streaming
-$delayMs = $delayMs_streaming
-
+# Get some information
 $totalSize = (Get-Item -LiteralPath $sourceFile).Length
 if( $totalSize -eq 0 ) {
     Write-Error "$sourceFile file size is 0"
@@ -133,10 +47,6 @@ if( $totalSize -eq 0 ) {
 $filename = [System.IO.Path]::getFileName($destFile)
 $drive = [System.IO.Path]::getPathRoot($destFile)
 $staging = $drive + "tmp\staging\" + $filename
-
-# Plex
-$plexToken = "Uw2D4x6pX3Ue7CDF6Zan"
-$plexUrl = "http://localhost:32400/status/sessions?X-Plex-Token=$plexToken"
 
 # Create destination directory if needed
 $destDir = Split-Path -LiteralPath $destFile
@@ -150,22 +60,18 @@ $destStream = [System.IO.File]::Create($staging)
 $totalRead = 0
 $startTime = Get-Date
 $lastUpdate = $startTime
-$lastPlexUpdate = $startTime
-
-# See if Plex is streaming
-$response = Invoke-WebRequest -Uri $plexUrl -UseBasicParsing
-$isStreaming = $response.Content -match "<Video "
 
 $speed = 0
 $recentStats = @()  # list of @{time=..., bytes=...}
 
-if ($isStreaming) {
-	$chunkSize = $chunkSize_streaming
-	$delayMs = $delayMs_streaming
-} else {
-	$chunkSize = $chunkSize_notStreaming
-	$delayMs = $delayMs_notStreaming
+$defaultChunkSize = 4MB
+$defaultDelayMs = 0
+
+$chunkSize = $defaultChunkSize
+foreach ($listener in $ChunkSizeListeners) {
+    $chunkSize = & $listener $chunkSize
 }
+
 $buffer = New-Object byte[] $chunkSize  # Resize buffer to match new chunk size
 
 try {
@@ -173,6 +79,10 @@ try {
         $destStream.Write($buffer, 0, $read)
         $totalRead += $read
 
+        $delayMs = $defaultDelayMs
+        foreach ($listener in $DelayMsListeners) {
+            $delayMs = & $listener $delayMs
+        }
         Start-Sleep -Milliseconds $delayMs
 
         # Send status update every second
@@ -213,7 +123,6 @@ try {
             $status = @{
                 id = $uuid
                 time = $now.ToString("yyyy-MM-dd HH:mm:ss")
-                message = "File transfer in progress..."
                 percent_complete = "$percent%"
                 transferred_mb = [math]::Round($totalRead / 1MB, 2)
                 total_mb = [math]::Round($totalSize / 1MB, 2)
@@ -226,36 +135,21 @@ try {
                 delay_ms = $delayMs
                 meta = $meta
             }
-            $json = $status | ConvertTo-Json -Depth 3
-            $utf8 = [System.Text.Encoding]::UTF8.GetBytes($json)
 
-            try {
-                Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $utf8 -ContentType "application/json"
-            } catch {
-                Write-Host "Failed to send update: $_"
+            # Notify chunk transferred listeners
+            foreach ($listener in $ChunkTransferredListeners) {
+                & $listener $status
             }
 
             $lastUpdate = $now
         }
 
-        # Recheck if Plex is streaming every 5 seconds
-        if ((New-TimeSpan $lastPlexUpdate (Get-Date)).TotalSeconds -ge 5) {
-            # See if Plex is streaming
-            $response = Invoke-WebRequest -Uri $plexUrl -UseBasicParsing
-            $isStreaming = $response.Content -match "<Video "
+        $chunkSize = $defaultChunkSize
+        foreach ($listener in ChunkSizeListeners) {
+            $chunkSize = & $listener $chunkSize
+        }
 
-            if ($isStreaming) {
-                $chunkSize = $chunkSize_streaming
-                $delayMs = $delayMs_streaming
-            } else {
-                $chunkSize = $chunkSize_notStreaming
-                $delayMs = $delayMs_notStreaming
-            }
-
-            $buffer = New-Object byte[] $chunkSize  # Resize buffer to match new chunk size
-
-            $lastPlexUpdate = Get-Date;
-	    }
+        $buffer = New-Object byte[] $chunkSize  # Resize buffer to match new chunk size
     }
 
     # Final flush & close
@@ -274,7 +168,6 @@ try {
     $status = @{
         id = $uuid
         time = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-        message = "Moving file from staging"
         percent_complete = "100%"
         transferred_mb = [math]::Round($totalSize / 1MB, 2)
         total_mb = [math]::Round($totalSize / 1MB, 2)
@@ -284,9 +177,9 @@ try {
         speed_mb_s = $speed_mbps
         meta = $meta
     }
-    $json = $status | ConvertTo-Json -Depth 3
-    $utf8 = [System.Text.Encoding]::UTF8.GetBytes($json)
-    Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $utf8 -ContentType "application/json"
+    foreach ($listener in $StagingStartingListeners) {
+        & $listener $status
+    }
 
     Move-Item -LiteralPath $staging -Destination $destFile
 
@@ -294,7 +187,6 @@ try {
     $status = @{
         id = $uuid
         time = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-        message = "File transfer complete"
         percent_complete = "100%"
         transferred_mb = [math]::Round($totalSize / 1MB, 2)
         total_mb = [math]::Round($totalSize / 1MB, 2)
@@ -305,9 +197,9 @@ try {
 	    status = "complete"
         meta = $meta
     }
-    $json = $status | ConvertTo-Json -Depth 3
-    $utf8 = [System.Text.Encoding]::UTF8.GetBytes($json)
-    Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $utf8 -ContentType "application/json"
+    foreach ($listener in $TransferCompleteListeners) {
+        & $listener $status
+    }
 
     exit 0
 
