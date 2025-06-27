@@ -147,7 +147,7 @@ try {
         }
 
         $chunkSize = $defaultChunkSize
-        foreach ($listener in ChunkSizeListeners) {
+        foreach ($listener in $ChunkSizeListeners) {
             $chunkSize = & $listener $chunkSize
         }
 
