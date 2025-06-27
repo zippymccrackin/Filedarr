@@ -31,7 +31,7 @@ Write-Host $destFile
 if (
     [string]::IsNullOrWhiteSpace($sourceFile) -or
     [string]::IsNullOrWhiteSpace($destFile) -or
-    -not (Test-Path $sourceFile)
+    -not (Test-Path -LiteralPath $sourceFile)
 ) {
     Write-Host "Error: source or destination is missing or source file does not exist.\n\tSource: $sourceFile\n\tDestination: $destFile"
     exit 1
