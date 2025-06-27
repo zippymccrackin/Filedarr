@@ -25,15 +25,17 @@ $sourceFile = $data['sourceFile']
 $destFile = $data['destinationFile']
 $meta = $data['meta']
 
+Write-Host $sourceFile
+Write-Host $destFile
+
 if (
     [string]::IsNullOrWhiteSpace($sourceFile) -or
     [string]::IsNullOrWhiteSpace($destFile) -or
     -not (Test-Path $sourceFile)
 ) {
-    Write-Host "Error: sourceFile or destFile is missing or source file does not exist."
+    Write-Host "Error: source or destination is missing or source file does not exist.\n\tSource: $sourceFile\n\tDestination: $destFile"
     exit 1
 }
-
 
 # Generate a tracking ID
 $uuid = New-Guid
