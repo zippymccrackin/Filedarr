@@ -10,7 +10,7 @@ $ChunkSizeListeners += {
 
     Update-PlexStreamingStatus
 
-    if ($script:plexStreamng) {
+    if ($script:plexStreaming) {
         $chunkSize = 1MB
     }
 
@@ -37,10 +37,10 @@ function Update-PlexStreamingStatus {
     if ((New-TimeSpan $script:lastPlexUpdate (Get-Date)).TotalSeconds -ge $script:IntervalCheckSeconds) {
         try {
             $response = Invoke-WebRequest -Uri $script:plexUrl -UseBasicParsing -TimeoutSec 2
-            $script:PlexStreaming = $response.Content -match "<Video "
+            $script:plexStreaming = $response.Content -match "<Video "
         } catch {
             Write-Warning "Failed to reach Plex. Assuming not streaming."
-            $script:PlexStreaming = $false
+            $script:plexStreaming = $false
         }
 
         $script:lastPlexUpdate = Get-Date

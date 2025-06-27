@@ -25,9 +25,6 @@ $sourceFile = $data['sourceFile']
 $destFile = $data['destinationFile']
 $meta = $data['meta']
 
-Write-Host $sourceFile
-Write-Host $destFile
-
 if (
     [string]::IsNullOrWhiteSpace($sourceFile) -or
     [string]::IsNullOrWhiteSpace($destFile) -or
@@ -46,10 +43,16 @@ if( $totalSize -eq 0 ) {
     Write-Error "$sourceFile file size is 0"
     exit 1
 }
+# TODO Modularize this so that the destination file name can be customized
 $filename = [System.IO.Path]::getFileName($destFile)
 $drive = [System.IO.Path]::getPathRoot($destFile)
+# TODO Modularize this so that staging can be 1) optional 2) customized
 $staging = $drive + "tmp\staging\" + $filename
 
+# Create staging directory if needed
+if (!(Test-Path $drive+"tmp\staging\")) {
+    New-Item -ItemType Directory -LiteralPath $drive="tmp\staging\" | Out-Null
+}
 # Create destination directory if needed
 $destDir = Split-Path -LiteralPath $destFile
 if (!(Test-Path $destDir)) {
