@@ -1,0 +1,5 @@
+$Global:ChunkSizeListeners = @()
+$Global:DelayMsListeners = @()
+$Global:ChunkTransferredListeners = @()
+$Global:StagingStartingListeners = @()
+$Global:TransferCompleteListeners = @()
