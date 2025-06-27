@@ -66,6 +66,7 @@ $totalRead = 0
 $startTime = Get-Date
 $lastUpdate = $startTime
 
+# TODO Modularize the speed calculator
 $speed = 0
 $recentStats = @()  # list of @{time=..., bytes=...}
 
@@ -118,9 +119,8 @@ try {
             $recentSpeed = [math]::Round($recentSpeed / 1MB, 2)
 
             $elapsed = ($now - $startTime).TotalSeconds
-            $speed = if ($elapsed -gt 0) { $totalRead / $elapsed } else { 0 }  # bytes/sec
             $remaining = $totalSize - $totalRead
-            $etaSeconds = if ($speed -gt 0) { [math]::Round($remaining / $speed) } else { 0 }
+            $etaSeconds = if ($recentSpeed -gt 0) { [math]::Round($remaining / $recentSpeed) } else { 0 }
             $eta = [TimeSpan]::FromSeconds($etaSeconds).ToString("hh\:mm\:ss")
 
             $percent = [math]::Round(($totalRead / $totalSize) * 100, 1)
