@@ -1,4 +1,4 @@
-$ChunkSizeListeners += {
+$ChunkTransferredListeners += {
     param($status)
 
     $status['message'] = "File transfer in progress..."
