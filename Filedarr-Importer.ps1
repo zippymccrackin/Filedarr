@@ -1,24 +1,30 @@
+$defaultChunkSize = 4MB
+$defaultDelayMs = 0
+
+$importerScriptPath = $MyInvocation.MyCommand.Path
+$importerScriptDir = Split-Path -Parent $importerScriptPath
+
+# Load Utility Functions
+. "$importerScriptDir\ps\core\util.ps1"
+
 # Load Listeners
-. "$PSScriptRoot\ps\core\listeners.ps1"
+. "$importerScriptDir\ps\core\listeners.ps1"
 
 # Load all hooks
-Get-ChildItem "$PSScriptRoot\ps\hooks\*.ps1" | ForEach-Object { . $_.FullName }
+Get-ChildItem "$importerScriptDir\ps\hooks\*.ps1" | ForEach-Object { . $_.FullName }
 
 # Load services
-. "$PSScriptRoot\ps\core\services.ps1"
+. "$importerScriptDir\ps\core\services.ps1"
 
 # Load all service scripts
-Get-ChildItem "$PSScriptRoot\ps\services\*.ps1" | ForEach-Object { . $_.FullName }
+Get-ChildItem "$importerScriptDir\ps\services\*.ps1" | ForEach-Object { . $_.FullName }
 
-$data = @{
+# Fill the data from the services
+Write-Debug "Notify-Listeners call on Services (Length of $($Services.Length))"
+$data = Notify-Listeners $Services -Return @{
     sourceFile = ""
     destinationFile = ""
     meta = @{}
-}
-
-# Fill the data from the services
-foreach ($listener in $Services) {
-    $data = & $listener $data
 }
 
 $sourceFile = $data['sourceFile']
@@ -43,40 +49,29 @@ if( $totalSize -eq 0 ) {
     Write-Error "$sourceFile file size is 0"
     exit 1
 }
-# TODO Modularize this so that the destination file name can be customized
-$filename = [System.IO.Path]::getFileName($destFile)
-$drive = [System.IO.Path]::getPathRoot($destFile)
-# TODO Modularize this so that staging can be 1) optional 2) customized
-$staging = $drive + "tmp\staging\" + $filename
 
-# Create staging directory if needed
-if (!(Test-Path $drive+"tmp\staging\")) {
-    New-Item -ItemType Directory -LiteralPath $drive="tmp\staging\" | Out-Null
-}
+Write-Debug "Notify-Listeners call on SetDestinationFilenameListeners (Length of $($SetDestinationFilenameListeners.Length))"
+$filename = Notify-Listeners $SetDestinationFilenameListeners $destFile -Return $([System.IO.Path]::getFileName($destFile))
+Write-Debug "Notify-Listeners call on SetDestinationPathListeners (Length of $($SetDestinationPathListeners.Length))"
+$filepath = Notify-Listeners $SetDestinationPathListeners $(Split-Path -LiteralPath $destFile)
+
+$destFile = Join-Path $filepath $filename
+
 # Create destination directory if needed
 $destDir = Split-Path -LiteralPath $destFile
 if (!(Test-Path $destDir)) {
-    New-Item -ItemType Directory -LiteralPath $destDir | Out-Null
+    New-Item -ItemType Directory $destDir | Out-Null
 }
 
 # Open streams
 $sourceStream = [System.IO.File]::OpenRead($sourceFile)
-$destStream = [System.IO.File]::Create($staging)
+$destStream = [System.IO.File]::Create($destFile)
 $totalRead = 0
 $startTime = Get-Date
 $lastUpdate = $startTime
 
-# TODO Modularize the speed calculator
-$speed = 0
-$recentStats = @()  # list of @{time=..., bytes=...}
-
-$defaultChunkSize = 4MB
-$defaultDelayMs = 0
-
-$chunkSize = $defaultChunkSize
-foreach ($listener in $ChunkSizeListeners) {
-    $chunkSize = & $listener $chunkSize
-}
+Write-Debug "Notify-Listeners call on ChunkSizeListeners (Length of $($ChunkSizeListeners.Length))"
+$chunkSize = Notify-Listeners $ChunkSizeListeners -Return $defaultChunkSize
 
 $buffer = New-Object byte[] $chunkSize  # Resize buffer to match new chunk size
 
@@ -85,74 +80,47 @@ try {
         $destStream.Write($buffer, 0, $read)
         $totalRead += $read
 
-        $delayMs = $defaultDelayMs
-        foreach ($listener in $DelayMsListeners) {
-            $delayMs = & $listener $delayMs
-        }
+        Write-Debug "Notify-Listeners call on DelayMsListeners (Length of $($DelayMsListeners.Length))"
+        $delayMs = Notify-Listeners $DelayMsListeners -Return $defaultDelayMs
         Start-Sleep -Milliseconds $delayMs
 
         # Send status update every second
         if ((New-TimeSpan $lastUpdate (Get-Date)).TotalSeconds -ge 1) {
             $now = Get-Date
-            $recentStats += [PSCustomObject]@{ time = $now; bytes = $totalRead }
-
-            # Remove entries older than 5 seconds
-            $recentStats = @( 
-                if ($recentStats -is [System.Collections.IEnumerable]) {
-                    $recentStats | Where-Object { $_ -and ($now - $_.time).TotalSeconds -le 5 }
-                } elseif ($recentStats) {
-                    if (($now - $recentStats.time).TotalSeconds -le 5) { $recentStats }
-                }
-            )
-
-            # Calculate speed based on the first and last entries
-            $recentSpeed = 0
-            if ($recentStats.Count -ge 2) {
-                $oldest = $recentStats[0]
-                $newest = $recentStats[-1]
-
-                $deltaBytes = $newest.bytes - $oldest.bytes
-                $deltaTime = ($newest.time - $oldest.time).TotalSeconds
-
-                $recentSpeed = if ($deltaTime -gt 0) { $deltaBytes / $deltaTime } else { 0 }
-            }
-            $recentSpeed = [math]::Round($recentSpeed / 1MB, 2)
 
             $elapsed = ($now - $startTime).TotalSeconds
-            $remaining = $totalSize - $totalRead
-            $etaSeconds = if ($recentSpeed -gt 0) { [math]::Round($remaining / $recentSpeed) } else { 0 }
-            $eta = [TimeSpan]::FromSeconds($etaSeconds).ToString("hh\:mm\:ss")
 
             $percent = [math]::Round(($totalRead / $totalSize) * 100, 1)
 
             $status = @{
                 id = $uuid
+                timestamp = $now
                 time = $now.ToString("yyyy-MM-dd HH:mm:ss")
+                elapsed_sec = $elapsed
                 percent_complete = "$percent%"
+                transferred = $totalRead
                 transferred_mb = [math]::Round($totalRead / 1MB, 2)
+                total = $totalSize
                 total_mb = [math]::Round($totalSize / 1MB, 2)
-                eta = $eta
                 source = $sourceFile
                 destination = $destFile
-		        streaming = $isStreaming
-                speed_mb_s = $recentSpeed
                 chunk_size = $chunkSize
                 delay_ms = $delayMs
                 meta = $meta
             }
 
+            Write-Debug "Notify-Listeners call on SetStatusInformationListeners (Length of $($SetStatusInformationListeners.Length))"
+            $status = Notify-Listeners $SetStatusInformationListeners -Return $status
+
             # Notify chunk transferred listeners
-            foreach ($listener in $ChunkTransferredListeners) {
-                & $listener $status
-            }
+            Write-Debug "Notify-Listeners call on ChunkTransferredListeners (Length of $($ChunkTransferredListeners.Length))"
+            Notify-Listeners $ChunkTransferredListeners $status
 
             $lastUpdate = $now
         }
 
-        $chunkSize = $defaultChunkSize
-        foreach ($listener in $ChunkSizeListeners) {
-            $chunkSize = & $listener $chunkSize
-        }
+        Write-Debug "Notify-Listeners call on ChunkSizeListeners (Length of $($ChunkSizeListeners.Length))"
+        $chunkSize = Notify-Listeners $ChunkSizeListeners -Return $defaultChunkSize
 
         $buffer = New-Object byte[] $chunkSize  # Resize buffer to match new chunk size
     }
@@ -166,50 +134,50 @@ try {
     if ($downloadClientType -ieq "SabNZBD") {
         Remove-Item -LiteralPath $sourceFile
     }
-
-    $speed_mbps = [math]::Round($speed / 1MB, 2)
     
-    # Staging status
+    # Wrapup status
     $status = @{
         id = $uuid
+        timestamp = Get-Date
         time = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
         percent_complete = "100%"
+        transferred = $totalRead
         transferred_mb = [math]::Round($totalSize / 1MB, 2)
+        total = $totalSize
         total_mb = [math]::Round($totalSize / 1MB, 2)
         eta = "00:00:00"
         source = $sourceFile
         destination = $destFile
-        speed_mb_s = $speed_mbps
+        status = "wrapup"
         meta = $meta
     }
-    foreach ($listener in $StagingStartingListeners) {
-        & $listener $status
-    }
 
-    Move-Item -LiteralPath $staging -Destination $destFile
+    Write-Debug "Notify-Listeners call on TransferWrapupListeners (Length of $($TransferWrapupListeners.Length))"
+    Notify-Listeners $TransferWrapupListeners $status
 
     # Final status
     $status = @{
         id = $uuid
+        timestamp = Get-Date
         time = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
         percent_complete = "100%"
+        transferred = $totalRead
         transferred_mb = [math]::Round($totalSize / 1MB, 2)
+        total = $totalSize
         total_mb = [math]::Round($totalSize / 1MB, 2)
         eta = "00:00:00"
         source = $sourceFile
         destination = $destFile
-        speed_mb_s = $speed_mbps
 	    status = "complete"
         meta = $meta
     }
-    foreach ($listener in $TransferCompleteListeners) {
-        & $listener $status
-    }
+    Write-Debug "Notify-Listeners call on TransferCompleteListeners (Length of $($TransferCompleteListeners.Length))"
+    Notify-Listeners $TransferCompleteListeners $status
 
     exit 0
 
 } catch {
-    Write-Host "Error during copy: $_"
+    Write-Error "Error during copy: $_"
     $sourceStream.Close()
     $destStream.Close()
 

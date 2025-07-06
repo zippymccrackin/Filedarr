@@ -1,3 +1,6 @@
+Write-Debug "Init notify_server.ps1"
+
+Write-Debug "    Adding to ChunkTransferredListeners (Length $($ChunkTransferredListeners.Length))"
 $ChunkTransferredListeners += {
     param($status)
 
@@ -5,15 +8,9 @@ $ChunkTransferredListeners += {
 
     SendStatusToServer -status $status
 }
+Write-Debug "    Done adding to ChunkTransferredListeners (Length $($ChunkTransferredListeners.Length))"
 
-$StagingStartingListeners += {
-    param($status)
-
-    $status['message'] = "Moving file from staging"
-
-    SendStatusToServer -status $status
-}
-
+Write-Debug "    Adding to TransferCompleteListeners (Length $($TransferCompleteListeners.Length))"
 $TransferCompleteListeners += {
     param($status)
 
@@ -21,6 +18,7 @@ $TransferCompleteListeners += {
 
     SendStatusToServer -status $status
 }
+Write-Debug "    Done adding to TransferCompleteListeners (Length $($TransferCompleteListeners.Length))"
 
 function SendStatusToServer {
     param($status)
@@ -35,6 +33,8 @@ function SendStatusToServer {
     try {
         Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $utf8 -ContentType "application/json"
     } catch {
-        Write-Host "Failed to send update: $_"
+        Write-Error "Failed to send update: $_"
     }
 }
+
+Write-Debug "Completed notify_server.ps1"
