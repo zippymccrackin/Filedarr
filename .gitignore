@@ -40,4 +40,10 @@ ehthumbs.db
 Thumbs.db
 
 # Secrets #
+###########
 .env
+
+# Test Directories #
+####################
+test/source
+test/destination

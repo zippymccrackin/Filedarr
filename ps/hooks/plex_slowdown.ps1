@@ -1,3 +1,5 @@
+Write-Debug "plex_slowdown.ps1"
+
 # Plex Setup
 $script:plexToken = "Uw2D4x6pX3Ue7CDF6Zan"
 $script:plexUrl = "http://localhost:32400/status/sessions?X-Plex-Token=$plexToken"
@@ -5,6 +7,7 @@ $script:IntervalCheckSeconds = 5
 
 $script:plexStreaming = $false
 
+Write-Debug "    Adding to ChunkSizeListeners (Length $($ChunkSizeListeners.Length))"
 $ChunkSizeListeners += {
     param($chunkSize)
 
@@ -16,7 +19,9 @@ $ChunkSizeListeners += {
 
     return $chunkSize
 }
+Write-Debug "    Done adding to ChunkSizeListeners (Length $($ChunkSizeListeners.Length))"
 
+Write-Debug "    Adding to DelayMsListeners (Length $($DelayMsListeners.Length))"
 $DelayMsListeners += {
     param($delayMs)
 
@@ -28,6 +33,7 @@ $DelayMsListeners += {
 
     return $delayMs
 }
+Write-Debug "    Done adding to DelayMsListeners (Length $($DelayMsListeners.Length))"
 
 function Update-PlexStreamingStatus {
     if (-not $script:lastPlexUpdate) {
@@ -46,3 +52,5 @@ function Update-PlexStreamingStatus {
         $script:lastPlexUpdate = Get-Date
     }
 }
+
+Write-Debug "Completed plex_slowdown.ps1"
