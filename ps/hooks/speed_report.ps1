@@ -32,7 +32,6 @@ $SetStatusInformationListeners += {
 
         $recentSpeed = if ($deltaTime -gt 0) { $deltaBytes / $deltaTime } else { 0 }
     }
-    $recentSpeed = [math]::Round($recentSpeed / 1MB, 2)
     
     $remaining = $totalSize - $totalRead
     
@@ -40,7 +39,7 @@ $SetStatusInformationListeners += {
     $eta = [TimeSpan]::FromSeconds($etaSeconds).ToString("hh\:mm\:ss")
 
     $status['eta'] = $eta
-    $status['speed_mb_s'] = $recentSpeed
+    $status['speed_mb_s'] = [math]::Round($recentSpeed / 1MB, 2)
 
     return $status
 }
