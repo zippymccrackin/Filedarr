@@ -23,3 +23,15 @@ function Notify-Listeners {
 
     return $Return
 }
+
+function Report-Error {
+    param(
+        $error,
+        $NotifyListeners=$true
+    )
+
+    Write-Error $error
+    if ($NotifyListeners) {
+        Notify-Listeners $ReportErrorListeners $error
+    }
+}

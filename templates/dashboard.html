@@ -474,6 +474,9 @@
             }, 400);
           }
           break;
+        case "error":
+          if (data.message) showErrorToast(data.message);
+          break;
       }
     };
 
@@ -600,7 +603,38 @@
         }
       })
     }
+
+    function showErrorToast(message) {
+      const container = document.getElementById('error-toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+
+      // Add close button
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'close-btn';
+      closeBtn.innerHTML = '&times;';
+      closeBtn.onclick = () => toast.remove();
+
+      toast.textContent = message;
+      toast.appendChild(closeBtn);
+      container.appendChild(toast);
+
+      // Animate in
+      requestAnimationFrame(() => {
+        toast.classList.add('show');
+      });
+
+      // Auto-remove logic with pause on hover
+      let removeTimeout = setTimeout(() => toast.remove(), 5000);
+
+      toast.addEventListener('mouseenter', () => clearTimeout(removeTimeout));
+      toast.addEventListener('mouseleave', () => {
+        removeTimeout = setTimeout(() => toast.remove(), 3000);
+      });
+    }
+
   </script>
+  <div id="error-toast-container"></div>
 </body>
 
 </html>

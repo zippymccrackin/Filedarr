@@ -33,7 +33,7 @@ function SendStatusToServer {
     try {
         Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $utf8 -ContentType "application/json"
     } catch {
-        Write-Error "Failed to send update: $_"
+        Report-Error "Failed to send update: $_"
     }
 }
 

@@ -5,6 +5,7 @@ from app.assets import assets_bp
 from app.routes.events import events_bp
 from app.routes.dashboard import dashboard_bp
 from app.routes.transfer import transfer_bp
+from app.routes.error import error_bp
 import os
 
 from app.error_handler import errorhandler_bp
@@ -27,5 +28,6 @@ app.register_blueprint(assets_bp)
 app.register_blueprint(events_bp)
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(transfer_bp)
+app.register_blueprint(error_bp)
 
 app.register_blueprint(errorhandler_bp)
