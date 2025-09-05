@@ -2,19 +2,20 @@ Write-Debug "Init report_error.ps1"
 
 Write-Debug "    Adding to ReportErrorListeners (Length $($ReportErrorListeners.Length))"
 $ReportErrorListeners += {
-    param($error)
+    param($err)
 
-    SendErrorToServer $error
+    SendErrorToServer $err
 }
 Write-Debug "    Done adding to ReportErrorListeners (Length $($ReportErrorListeners.Length))"
 
 function SendErrorToServer {
-    param($error)
+    param($err)
 
     $webhookUrl = "http://localhost:3565/error"
 
     $json = @{
-        message: $error
+        message = $err
+        callStack = (Get-PSCallStack | Out-String)
     } | ConvertTo-Json -Depth 3
     $utf8 = [System.Text.Encoding]::UTF8.GetBytes($json)
 

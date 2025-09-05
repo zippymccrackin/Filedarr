@@ -31,7 +31,10 @@ function SendStatusToServer {
     $utf8 = [System.Text.Encoding]::UTF8.GetBytes($json)
 
     try {
-        Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $utf8 -ContentType "application/json"
+#        Start-ThreadJob -ScriptBlock {
+#            param($webhookUrl, $utf8)
+            Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $utf8 -ContentType "application/json"
+#        } -ArgumentList $webhookUrl, $utf8 | Out-Null
     } catch {
         Report-Error "Failed to send update: $_"
     }

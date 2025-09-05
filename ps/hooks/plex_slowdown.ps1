@@ -14,7 +14,7 @@ $ChunkSizeListeners += {
     Update-PlexStreamingStatus
 
     if ($script:plexStreaming) {
-        $chunkSize = 1MB
+#        $chunkSize = 1MB
     }
 
     return $chunkSize
@@ -28,7 +28,7 @@ $DelayMsListeners += {
     Update-PlexStreamingStatus
 
     if ($script:plexStreaming) {
-        $delayMs = 150
+#        $delayMs = 50
     }
 
     return $delayMs

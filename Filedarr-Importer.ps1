@@ -1,4 +1,4 @@
-$defaultChunkSize = 4MB
+$defaultChunkSize = 4.1MB
 $defaultDelayMs = 0
 
 $importerScriptPath = $MyInvocation.MyCommand.Path
@@ -56,6 +56,8 @@ Write-Debug "Notify-Listeners call on SetDestinationPathListeners (Length of $($
 $filepath = Notify-Listeners $SetDestinationPathListeners $(Split-Path -LiteralPath $destFile)
 
 $destFile = Join-Path $filepath $filename
+
+Write-Host "Destination File: $destFile"
 
 # Create destination directory if needed
 $destDir = Split-Path -LiteralPath $destFile
@@ -178,6 +180,11 @@ try {
 
 } catch {
     Report-Error "Error during copy: $_"
+    Write-Host "Message: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "Script:  $($_.InvocationInfo.ScriptName)"
+    Write-Host "Line:    $($_.InvocationInfo.ScriptLineNumber)"
+    Write-Host "Code:    $($_.InvocationInfo.Line.Trim())"
+    Write-Host "Position: $($_.InvocationInfo.PositionMessage)"
     $sourceStream.Close()
     $destStream.Close()
 
