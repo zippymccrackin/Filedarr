@@ -3,6 +3,11 @@ BeforeAll {
     $includePath = Join-Path $PSScriptRoot '..\..\..\ps\core\util.ps1' | Resolve-Path
     . $includePath
     $fakeListeners = @()
+
+    Mock Write-Error {
+        param($Message)
+        $Script:capturedError = $Message
+    }
 }
 
 Describe "util" {
@@ -125,11 +130,13 @@ Describe "util" {
         It "writes the error to Write-Error" {
             $errors = & {
                 $Error.Clear()
-                Report-Error "This is an error message" 2>$Null
+                Report-Error "This is an error message that is very unique, like very" 2>$Null
                 $Error
             }
 
-            $errors[0].ToString() | Should -Match "This is an error message"
+            # because it's mocked, we can't check $errors[0] directly
+            # so we check what our mock captured
+            $Script:capturedError | Should -Match "This is an error message that is very unique, like very"
         }
         It "calls listeners" {
             $Script:listener1called = $False

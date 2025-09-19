@@ -5,6 +5,14 @@ BeforeAll {
 
     $includePath = Join-Path $PSScriptRoot '..\..\..\ps\hooks\staging.ps1' | Resolve-Path
     . $includePath
+
+    Mock Join-Path {
+        param([string]$Path, [string]$ChildPath)
+        $sep = [System.IO.Path]::DirectorySeparatorChar
+        $Path = $Path.TrimEnd($sep)
+        $ChildPath = $ChildPath.TrimStart($sep)
+        return "$Path$sep$ChildPath"
+    }
 }
 AfterAll {
     $Global:SetDestinationPathListeners = $Null
@@ -74,6 +82,7 @@ Describe "staging" {
                 $Script:message = $status['message']
             }
             Mock Move-Item { return $null }
+            Mock New-Item { return $null }
 
             . $TransferWrapupListeners[0] @{
                 destination = "Q:\Test\Path\uniqueFileName.txt"
