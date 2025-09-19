@@ -92,7 +92,4 @@ Describe "Notify-Server" {
         $first | Should -BeTrue
         $second | Should -BeTrue
     }
-    It "should fail the pipeline on failed tests" {
-        "This is a failing test" | Should -Be "Not the same"
-    }
 }
