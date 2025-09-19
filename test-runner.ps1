@@ -88,6 +88,8 @@ if ($results -and $results.Tests) {
     }
 }
 
+$coverageDataFiles = @()
+# Parse coverage XML
 foreach ($class in $xml.coverage.packages.package.classes.class) {
     $file = $class.filename
     $lines = $class.lines.line
@@ -117,7 +119,7 @@ foreach ($class in $xml.coverage.packages.package.classes.class) {
             }
         }
     }
-    $coverageData += [PSCustomObject]@{
+    $coverageDataFiles += [PSCustomObject]@{
         File = $file
         LinesCovered = $covered
         TotalLines = $total
@@ -126,6 +128,19 @@ foreach ($class in $xml.coverage.packages.package.classes.class) {
         FailedTests = $fail
         TotalTests = $fileTotalTests
     }
+}
+
+$coverageData = @{
+    Summary = @{
+        GeneratedAt = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+        SourcePath = (Resolve-Path $SourcePath).Path
+        TestPath = (Resolve-Path $TestPath).Path
+        TotalTests = $totalTests
+        SuccessfulTests = $totalPassed
+        FailedTests = $totalFailed
+        PercentSuccessful = if ($totalTests -gt 0) { [math]::Round(($totalPassed / $totalTests) * 100, 2) } else { 100 }
+    }
+    Files = $coverageDataFiles
 }
 
 # Export to CSV

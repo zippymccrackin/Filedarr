@@ -1,0 +1,44 @@
+name: Run PowerShell Tests
+
+on:
+  pull_request:
+    branches: [ master ]
+  push:
+    branches: [ master ]
+
+jobs:
+  test:
+    runs-on: windows-latest   # so we can use native PowerShell
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Run custom test script
+        shell: pwsh
+        run: |
+          # Run your test script
+          ./test-runner.ps1
+
+      - name: Verify output file exists
+        shell: pwsh
+        run: |
+          $outputFile = "coverage\coverage-summary.json"
+          if (-not (Test-Path $outputFile)) {
+            Write-Error "Test Coverage file not found!"
+            exit 1
+          }
+
+      - name: Parse coverage file
+        shell: pwsh
+        run: |
+          $outputFile = "coverage\coverage-summary.json"
+          $data = Get-Content $outputFile | ConvertFrom-Json
+          $coverage = [int]$data.Summary.PercentSuccessful
+          Write-Host "Reported coverage: $coverage%"
+          if ($coverage -lt 80) {
+            Write-Error "Coverage below required threshold (80%)."
+            exit 1
+          } else {
+            Write-Host "Coverage OK."
+          }
