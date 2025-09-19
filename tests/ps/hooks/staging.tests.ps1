@@ -82,6 +82,7 @@ Describe "staging" {
                 $Script:message = $status['message']
             }
             Mock Move-Item { return $null }
+            Mock New-Item { return $null }
 
             . $TransferWrapupListeners[0] @{
                 destination = "Q:\Test\Path\uniqueFileName.txt"
