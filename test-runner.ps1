@@ -36,9 +36,11 @@ $configuration = @{
 # Capture Pester output to a file
 $pesterOutputPath = Join-Path $OutputPath 'pester-output.txt'
 
+Start-Transcript -Path "$OutputPath\pester-output.txt" -Force
 $results = & {
     Invoke-Pester -Configuration $configuration
-} *>&1 | Tee-Object -FilePath $pesterOutputPath
+}
+Stop-Transcript
 $results | Format-List * -Force | Out-File "$OutputPath\pester-results.txt"
 
 # Check if coverage.xml was generated
