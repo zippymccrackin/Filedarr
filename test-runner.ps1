@@ -139,6 +139,7 @@ $coverageData = @{
         SuccessfulTests = $totalPassed
         FailedTests = $totalFailed
         PercentSuccessful = if ($totalTests -gt 0) { [math]::Round(($totalPassed / $totalTests) * 100, 2) } else { 100 }
+        PercentCoverage = if ($coverageDataFiles.Count -gt 0) { [math]::Round((($coverageDataFiles | Measure-Object -Property LinesCovered -Sum).Sum / ($coverageDataFiles | Measure-Object -Property TotalLines -Sum).Sum) * 100, 2) } else { 100 }
     }
     Files = $coverageDataFiles
 }
@@ -152,7 +153,6 @@ Write-Host "CSV saved to $csvPath"
 $jsonPath = Join-Path $OutputPath "coverage-summary.json"
 $coverageData | ConvertTo-Json -Depth 5 | Out-File $jsonPath
 Write-Host "JSON saved to $jsonPath"
-
 
 
 # Modern HTML/CSS/JS coverage report
@@ -306,7 +306,7 @@ $htmlContent += '</div>'
 
 # Table
 $tableHeader = "<tr><th>File</th><th>Lines<br />Covered</th><th>Total<br />Lines</th><th>Percent<br />Covered</th><th>Successful<br />Tests</th><th>Failed<br />Tests</th><th>Total<br />Tests</th></tr>"
-$tableRows = $coverageData | ForEach-Object {
+$tableRows = $coverageData.Files | ForEach-Object {
         $rowClass = if ($_.PercentCovered -eq 100) { 'covered' } elseif ($_.PercentCovered -eq 0) { 'uncovered' } elseif ($_.PercentCovered -lt 100) { 'partial' } else { '' }
         if ($_.FailedTests -gt 0) { $rowClass += ' failed' }
         $row = "<tr class='$rowClass'>"

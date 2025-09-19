@@ -34,7 +34,7 @@ jobs:
         run: |
           $outputFile = "coverage\coverage-summary.json"
           $data = Get-Content $outputFile | ConvertFrom-Json
-          $coverage = [int]$data.Summary.PercentSuccessful
+          $coverage = [int]$data.Summary.PercentCoverage
           Write-Host "Reported coverage: $coverage%"
           if ($coverage -lt 80) {
             Write-Error "Coverage below required threshold (80%)."
