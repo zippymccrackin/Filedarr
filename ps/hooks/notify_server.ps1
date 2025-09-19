@@ -1,7 +1,14 @@
+$script:NotifyServerIncluded = $script:NotifyServerIncluded -or $false
+if ($script:NotifyServerIncluded) { return }
+$script:NotifyServerIncluded = $true
+
+$utilPath = Join-Path $PSScriptRoot '..\core\util.ps1' | Resolve-Path
+. $utilPath
+
 Write-Debug "Init notify_server.ps1"
 
 Write-Debug "    Adding to ChunkTransferredListeners (Length $($ChunkTransferredListeners.Length))"
-$ChunkTransferredListeners += {
+$Global:ChunkTransferredListeners += {
     param($status)
 
     $status['message'] = "File transfer in progress..."
@@ -11,7 +18,7 @@ $ChunkTransferredListeners += {
 Write-Debug "    Done adding to ChunkTransferredListeners (Length $($ChunkTransferredListeners.Length))"
 
 Write-Debug "    Adding to TransferCompleteListeners (Length $($TransferCompleteListeners.Length))"
-$TransferCompleteListeners += {
+$Global:TransferCompleteListeners += {
     param($status)
 
     $status['message'] = "File transfer complete"
@@ -33,7 +40,8 @@ function SendStatusToServer {
     try {
         Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $utf8 -ContentType "application/json"
     } catch {
-        Report-Error "Failed to send update: $_"
+        $exceptionMessage = $_.Exception.Message
+        Report-Error "Failed to send update: $exceptionMessage"
     }
 }
 
