@@ -3,6 +3,11 @@ BeforeAll {
     $includePath = Join-Path $PSScriptRoot '..\..\..\ps\core\util.ps1' | Resolve-Path
     . $includePath
     $fakeListeners = @()
+
+    Mock Write-Error {
+        param($Message)
+        $Script:capturedError = $Message
+    }
 }
 
 Describe "util" {
