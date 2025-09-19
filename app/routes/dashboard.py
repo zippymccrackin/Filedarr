@@ -1,5 +1,4 @@
 from quart import Blueprint, render_template
-import os
 
 dashboard_bp = Blueprint("dashboard", __name__)
 

@@ -1,14 +1,20 @@
+if (Get-Command -Name "Notify-Listeners" -CommandType Function -ErrorAction SilentlyContinue) {
+    return
+}
+
 function Notify-Listeners {
     param (
+        [Parameter(Position = 1)]
         [ScriptBlock[]]$Listeners,
 
-        [Parameter(ValueFromRemainingArguments = $true)]
+        [Parameter(ValueFromRemainingArguments = $True, Position = 2)]
         $Args,
 
-        [object]$Return = $null
+        [Parameter()]
+        [object]$Return = $Null
     )
 
-    if ($null -eq $Listeners) {
+    if ($Null -eq $Listeners) {
         throw "Listeners parameter cannot be null. Pass an empty array if no listeners."
     }
 
@@ -17,7 +23,11 @@ function Notify-Listeners {
     foreach ($listener in $Listeners) {
         $count = $count + 1
         Write-Debug "Inside Listener Call $count"
-        $Return = & $listener $Return @Args
+        if ($Return -ne $Null) {
+            $Return = & $listener $Return @Args
+        } else {
+            & $listener @Args
+        }
     }
     Write-Debug "Return from listeners (called $count)"
 
@@ -26,12 +36,16 @@ function Notify-Listeners {
 
 function Report-Error {
     param(
-        $error,
-        $NotifyListeners=$true
+        [String]$errorMsg,
+        [bool]$NotifyListeners=$True
     )
 
-    Write-Error $error
-    if ($NotifyListeners) {
-        Notify-Listeners $ReportErrorListeners $error
+    Write-Error $errorMsg
+    if (
+        $NotifyListeners -and 
+        $ReportErrorListeners -is [System.Collections.IEnumerable] -and 
+        $ReportErrorListeners.Count -gt 0
+    ) {
+        Notify-Listeners $ReportErrorListeners $errorMsg
     }
 }

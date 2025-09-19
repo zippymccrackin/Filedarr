@@ -1,16 +1,20 @@
 Write-Debug "Init staging.ps1"
 
-$script:destinationFilePath = ""
-$script:stagingPath = "\tmp\staging\"
+Write-Debug "Require notify_server.ps1"
+$notifyServerPath = Join-Path $PSScriptRoot 'notify_server.ps1' | Resolve-Path
+. $notifyServerPath
+
+$Script:destinationFilePath = ""
+$Script:stagingPath = "\tmp\staging\"
 
 Write-Debug "    Adding to SetDestinationPathListeners (Length $($SetDestinationPathListeners.Length))"
 $SetDestinationPathListeners += {
     param($filepath)
 
-    $script:destinationFilePath = $filepath
+    $Script:destinationFilePath = $filepath
 
     $drive = [System.IO.Path]::getPathRoot($filepath)
-    $stagingPath = Join-Path $drive $script:stagingPath
+    $stagingPath = Join-Path $drive $Script:stagingPath
 
     Write-Debug "Staging path set to $stagingPath"
 
@@ -37,11 +41,11 @@ $TransferWrapupListeners += {
 
     $filename = [System.IO.Path]::getFileName($stagedFile)
 
-    if (!(Test-Path $script:destinationFilePath)) {
-        New-Item -ItemType Directory $script:destinationFilePath | Out-Null
+    if (!(Test-Path $Script:destinationFilePath)) {
+        New-Item -ItemType Directory $Script:destinationFilePath | Out-Null
     }
 
-    $destination = Join-Path $script:destinationFilePath $filename
+    $destination = Join-Path $Script:destinationFilePath $filename
     Write-Debug "Moving file $stagedFile to $destination"
     Move-Item -LiteralPath $stagedFile -Destination $destination
 }
