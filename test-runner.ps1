@@ -391,3 +391,5 @@ $flatHtml += $htmlContent | ForEach-Object { $_.ToString() }
 $flatHtml += '</body></html>'
 $flatHtml -join "`n" | Out-File $htmlPath -Encoding UTF8
 Write-Host "HTML saved to $htmlPath"
+Write-Host "PowerShell success flag: $?"
+Write-Host "LASTEXITCODE: $LASTEXITCODE"
