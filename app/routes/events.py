@@ -8,6 +8,8 @@ from app.state import clients
 
 events_bp = Blueprint("events", __name__)
 
+KEEPALIVE_TIMEOUT = 5  # seconds
+
 @events_bp.route('/events')
 async def events():
     q = asyncio.Queue()
@@ -20,10 +22,12 @@ async def events():
         try:
             while True:
                 try:
-                    msg = await asyncio.wait_for(q.get(), timeout=5)
+                    print("Waiting for message...")
+                    msg = await asyncio.wait_for(q.get(), timeout=KEEPALIVE_TIMEOUT)
                     yield f"data: {json.dumps(msg)}\n\n"
                 except asyncio.TimeoutError:
                     # keep alive
+                    print("Sending keep-alive")
                     yield ": keep-alive\n\n"
         except asyncio.CancelledError:
             print(f"[Client disconnected] {client_ip}")

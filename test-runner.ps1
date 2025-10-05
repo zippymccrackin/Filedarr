@@ -1,19 +1,23 @@
-param (
-    [string]$TestPath = (Resolve-Path "./tests/ps").Path,
-    [string]$SourcePath = (Resolve-Path "./ps").Path,
-    [string]$OutputPath = "./coverage"
-)
+# Powershell Tester
+
+$PesterTestPath = (Resolve-Path "./tests/ps").Path
+$PesterSourcePath = (Resolve-Path "./ps").Path
+
+$OutputPath = "./coverage"
+$PesterOutputPath = Join-Path $OutputPath "/pester/"
 
 # Ensure output directory exists
-if (-not (Test-Path $OutputPath)) {
-    New-Item -Path $OutputPath -ItemType Directory | Out-Null
+if (-not (Test-Path $PesterOutputPath)) {
+    New-Item -Path $PesterOutputPath -ItemType Directory | Out-Null
 }
 
-$codeCoverageFiles = Get-ChildItem -Path $SourcePath -Recurse -Filter *.ps1 | Select-Object -ExpandProperty FullName
+$codeCoverageFiles = Get-ChildItem -Path $PesterSourcePath -Recurse -Filter *.ps1 | Select-Object -ExpandProperty FullName
+
+$pesterCoveragePath = Join-Path $PesterOutputPath 'pester-coverage.xml'
 
 $configuration = @{
     Run = @{
-        Path = $TestPath
+        Path = $PesterTestPath
         Exit = $false
         PassThru = $true
     }
@@ -25,38 +29,36 @@ $configuration = @{
         Enabled = $true
         Path = $codeCoverageFiles
         OutputFormat = 'Cobertura'
-        OutputPath = (Join-Path $OutputPath 'coverage.xml')
+        OutputPath = $pesterCoveragePath
     }
     Debug = @{
         WriteDebugMessages = $False
     }
 }
 
-
 # Capture Pester output to a file
-$pesterOutputPath = Join-Path $OutputPath 'pester-output.txt'
+$pesterConsoleOutputPath = Join-Path $PesterOutputPath 'pester-output.txt'
 
-Start-Transcript -Path "$OutputPath\pester-output.txt" -Force
+Start-Transcript -Path "$PesterOutputPath\pester-output.txt" -Force
 $results = & {
     Invoke-Pester -Configuration $configuration
 }
 Stop-Transcript
-$results | Format-List * -Force | Out-File "$OutputPath\pester-results.txt"
+$results | Format-List * -Force | Out-File "$PesterOutputPath\pester-results.txt"
 
-# Check if coverage.xml was generated
-$coverageXml = Join-Path $OutputPath 'coverage.xml'
-if (-not (Test-Path $coverageXml)) {
-    Write-Warning "No code coverage data file found at $coverageXml. Are your tests running code in '$SourcePath'?"
+# Check if pester coverage.xml was generated
+if (-not (Test-Path $pesterCoveragePath)) {
+    Write-Warning "No code coverage data file found at $pesterCoveragePath. Are your tests running code in '$PesterSourcePath'?"
     return
 }
 
 # For now, just notify the user:
-Write-Host "Coverage XML generated at $coverageXml."
+Write-Host "Coverage XML generated at $pesterCoveragePath."
 
 # Parse missed commands from Pester output
 $missedCommands = @()
-if (Test-Path $pesterOutputPath) {
-    $lines = Get-Content $pesterOutputPath -Raw -Encoding UTF8
+if (Test-Path pesterConsoleOutputPath) {
+    $lines = Get-Content pesterConsoleOutputPath -Raw -Encoding UTF8
     if ($lines -match '(?ms)Missed command:(.+?)(?:\n\n|$)') {
         $missedBlock = $matches[1]
         $missedLines = $missedBlock -split "`n" | Where-Object { $_ -match '\S' -and -not ($_ -match 'File +Class +Function +Line +Command') }
@@ -75,8 +77,7 @@ if (Test-Path $pesterOutputPath) {
     }
 }
 $coverageData = @()
-[xml]$xml = Get-Content $coverageXml
-
+[xml]$xml = Get-Content $pesterCoveragePath
 
 # Parse Pester test results for total test counts
 
@@ -135,8 +136,8 @@ foreach ($class in $xml.coverage.packages.package.classes.class) {
 $coverageData = @{
     Summary = @{
         GeneratedAt = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-        SourcePath = (Resolve-Path $SourcePath).Path
-        TestPath = (Resolve-Path $TestPath).Path
+        SourcePath = (Resolve-Path $PesterSourcePath).Path
+        TestPath = (Resolve-Path $PesterTestPath).Path
         TotalTests = $totalTests
         SuccessfulTests = $totalPassed
         FailedTests = $totalFailed
@@ -147,15 +148,86 @@ $coverageData = @{
 }
 
 # Export to CSV
-$csvPath = Join-Path $OutputPath "coverage-summary.csv"
+$csvPath = Join-Path $PesterOutputPath "coverage-summary.csv"
 $coverageData | Export-Csv -Path $csvPath -NoTypeInformation
 Write-Host "CSV saved to $csvPath"
 
 # Export to JSON
-$jsonPath = Join-Path $OutputPath "coverage-summary.json"
+$jsonPath = Join-Path $PesterOutputPath "coverage-summary.json"
 $coverageData | ConvertTo-Json -Depth 5 | Out-File $jsonPath
 Write-Host "JSON saved to $jsonPath"
 
+#python tester
+python -m pytest --json-report --json-report-file=coverage/py/report.json --cov=app --cov-report=json:coverage/py/coverage.json
+
+$pythonCoverageData = Get-Content -Path "coverage/py/coverage.json" -Raw | ConvertFrom-Json -Depth 100 -AsHashtable
+$pythonTestReport = Get-Content -Path "coverage/py/report.json" -Raw | ConvertFrom-Json -Depth 100 -AsHashtable
+if ($pythonCoverageData) {
+    foreach ($fileEntry in $pythonCoverageData.files.getEnumerator()) {
+        $filePath = $fileEntry.Key
+        Write-Host "Processing Python coverage entry: $filePath"
+        $fileStats = $fileEntry.Value
+        $linesCovered = ($fileStats.summary.covered_lines)
+        $totalLines = [int]($fileStats.summary.num_statements)
+        if ($totalLines -eq 0) {
+            $percentCovered = 100
+        } else {
+            $percentCovered = [math]::Round(($linesCovered / $totalLines) * 100, 2)
+        }
+
+        # Per-file test counters
+        $success = 0; $fail = 0; $fileTotalTests = 0
+        if ($pythonTestReport.tests) {
+            $sourcePath = $filePath -replace '\\', '/'
+            foreach ($test in $pythonTestReport.tests) {
+                if ($test.nodeid) {
+                    $testParts = $test.nodeid -split '::'
+                    if ($testParts.Count -ge 2) {
+                        $testFile = $testParts[0]
+
+                        # Normalize path to match sourcePath format
+                        if ($testFile.StartsWith("tests/")) {
+                            $testFile = $testFile.Substring(6)
+                        }
+
+                        # Remove "test_" prefix if present
+                        $dirName = [System.IO.Path]::GetDirectoryName($testFile)
+                        $fileName = [System.IO.Path]::GetFileName($testFile)
+                        if ($fileName.StartsWith("test_")) {
+                            $fileName = $fileName.Substring(5)
+                        }
+                        $testRelativePath = if ($dirName) { "$dirName/$fileName" } else { $fileName }
+                        $testRelativePath = $testRelativePath -replace '\\', '/'
+                        if ($testRelativePath -eq $sourcePath) {
+                            $fileTotalTests++
+                            if ($test.outcome -eq 'passed') { $success++ }
+                            elseif ($test.outcome -eq 'failed') { $fail++ }
+                        }
+                    }
+                }
+            }
+        }
+
+        $coverageData.Files += [PSCustomObject]@{
+            File = $filePath
+            LinesCovered = $linesCovered
+            TotalLines = $totalLines
+            PercentCovered = $percentCovered
+            SuccessfulTests = $success
+            FailedTests = $fail
+            TotalTests = $fileTotalTests
+        }
+    }
+    # Update summary totals
+    $coverageData.Summary.TotalTests = ($coverageData.Files | Measure-Object -Property TotalTests -Sum).Sum
+    $coverageData.Summary.SuccessfulTests = ($coverageData.Files | Measure-Object -Property SuccessfulTests -Sum).Sum
+    $coverageData.Summary.FailedTests = ($coverageData.Files | Measure-Object -Property FailedTests -Sum).Sum
+    if ($coverageData.Summary.TotalTests -gt 0) {
+        $coverageData.Summary.PercentSuccessful = [math]::Round(($coverageData.Summary.SuccessfulTests / $coverageData.Summary.TotalTests) * 100, 2)
+    } else {
+        $coverageData.Summary.PercentSuccessful = 100
+    }
+}
 
 # Modern HTML/CSS/JS coverage report
 $htmlPath = Join-Path $OutputPath "coverage-report.html"
@@ -199,6 +271,8 @@ h1, h2 {
 }
 .export-btns {
     margin-bottom: 1.5em;
+    display: flex;
+    justify-content: space-around;
 }
 .export-btns button {
     background: #0078d4;
@@ -295,32 +369,37 @@ function downloadFile(file, type) {
 
 $htmlContent = @()
 $htmlContent += '<div class="container">'
-$htmlContent += '<h1>FileDarr PowerShell Testing Report</h1>'
+$htmlContent += '<h1>FileDarr Testing Report</h1>'
 $htmlContent += "<div class='summary'>"
 $htmlContent += "<div class='summary-item'><b>Total Tests:</b><br>$totalTests</div>"
 $htmlContent += "<div class='summary-item'><b>Successful:</b><br>$totalPassed</div>"
 $htmlContent += "<div class='summary-item'><b>Failed:</b><br>$totalFailed</div>"
 $htmlContent += "</div>"
 $htmlContent += '<div class="export-btns">'
-$htmlContent += '<button onclick="downloadFile(''coverage-summary.csv'')">Export CSV</button>'
-$htmlContent += '<button onclick="downloadFile(''coverage-summary.json'')">Export JSON</button>'
+$htmlContent += '<button onclick="downloadFile(''pester/coverage-summary.csv'')">Export PowerShell CSV</button>'
+$htmlContent += '<button onclick="downloadFile(''pester/coverage-summary.json'')">Export PowerShell JSON</button>'
+$htmlContent += '<button onclick="downloadFile(''py/coverage.json'')">Export Python Coverage JSON</button>'
+$htmlContent += '<button onclick="downloadFile(''py/report.json'')">Export Python Report JSON</button>'
 $htmlContent += '</div>'
 
 # Table
-$tableHeader = "<tr><th>File</th><th>Lines<br />Covered</th><th>Total<br />Lines</th><th>Percent<br />Covered</th><th>Successful<br />Tests</th><th>Failed<br />Tests</th><th>Total<br />Tests</th></tr>"
+$tableHeader = "<tr><th>File</th><th>Type</th><th>Lines<br />Covered</th><th>Total<br />Lines</th><th>Percent<br />Covered</th><th>Successful<br />Tests</th><th>Failed<br />Tests</th><th>Total<br />Tests</th></tr>"
 $tableRows = $coverageData.Files | ForEach-Object {
-        $rowClass = if ($_.PercentCovered -eq 100) { 'covered' } elseif ($_.PercentCovered -eq 0) { 'uncovered' } elseif ($_.PercentCovered -lt 100) { 'partial' } else { '' }
-        if ($_.FailedTests -gt 0) { $rowClass += ' failed' }
-        $row = "<tr class='$rowClass'>"
-        $row += "<td style='text-align: left;'>$($_.File)</td>"
-        $row += "<td>$($_.LinesCovered)</td>"
-        $row += "<td>$($_.TotalLines)</td>"
-        $row += "<td>$($_.PercentCovered)</td>"
-        $row += "<td>$($_.SuccessfulTests)</td>"
-        $row += "<td>$($_.FailedTests)</td>"
-        $row += "<td>$($_.TotalTests)</td>"
-        $row += "</tr>"
-        $row
+    $fileType = if ( $_.File -like "*.ps1") { "PowerShell" } elseif ($_.File -like "*.py") { "Python" } else { "Unknown" }
+    $rowClass = if ($_.PercentCovered -eq 100) { 'covered' } elseif ($_.PercentCovered -eq 0) { 'uncovered' } elseif ($_.PercentCovered -lt 100) { 'partial' } else { '' }
+    if (($_.TotalTests -eq 0) -and ($_.File -notlike "*__init__.py")) { $rowClass = 'uncovered' }
+    if ($_.FailedTests -gt 0) { $rowClass += ' failed' }
+    $row = "<tr class='$rowClass'>"
+    $row += "<td style='text-align: left;'>$($_.File)</td>"
+    $row += "<td>$fileType</td>"
+    $row += "<td>$($_.LinesCovered)</td>"
+    $row += "<td>$($_.TotalLines)</td>"
+    $row += "<td>$($_.PercentCovered)</td>"
+    $row += "<td>$($_.SuccessfulTests)</td>"
+    $row += "<td>$($_.FailedTests)</td>"
+    $row += "<td>$($_.TotalTests)</td>"
+    $row += "</tr>"
+    $row
 }
 $htmlContent += "<table class='coverage'>" + $tableHeader + ($tableRows -join "`n") + "</table>"
 
@@ -329,7 +408,7 @@ $failedTestsHtml = ''
 if ($results -and $results.Tests) {
         $failed = $results.Tests | Where-Object { $_.Result -eq 'Failed' }
         if ($failed.Count -gt 0) {
-                $failedTestsHtml += "<details class='collapsible'><summary style='color:#b00;'>Failed Tests ($($failed.Count))</summary>"
+                $failedTestsHtml += "<details class='collapsible'><summary style='color:#b00;'>Failed PowerShell Tests ($($failed.Count))</summary>"
                 foreach ($test in $failed) {
                         $failedTestsHtml += "<div class='failed-test'>"
                         $failedTestsHtml += "<b>Test:</b> $($test.Name)<br>"
@@ -344,6 +423,33 @@ if ($results -and $results.Tests) {
                 $failedTestsHtml += '</details>'
         }
 }
+$failedPythonTests = @( ( @($pythonTestReport.tests) | Where-Object { $_.outcome -eq 'failed' } ) | Group-Object nodeid | ForEach-Object { $_.Group[0] } )
+if ($failedPythonTests.Count -gt 0) {
+    $failedTestsHtml += "<details class='collapsible'><summary style='color:#b00;'>Failed Python Tests ($($failedPythonTests.Count))</summary>"
+
+    foreach ($test in $failedPythonTests) {
+        # Extract file and function
+        $testParts = $test.nodeid -split '::'
+        $filePath = $testParts[0]
+        $testName = if ($testParts.Count -ge 2) { $testParts[1] } else { $testParts[0] }
+
+        $failedTestsHtml += "<div class='failed-test'>"
+        $failedTestsHtml += "<b>Test:</b> $testName<br>"
+        $failedTestsHtml += "<b>File:</b> $filePath<br>"
+
+        # Include message if available
+        if ($test.call.longrepr) {
+            $message = if ($test.call.longrepr -is [System.Array]) { ($test.call.longrepr -join "`n") } else { $test.call.longrepr }
+            $message = $message -replace "<", "&lt;" -replace ">", "&gt;"
+            $failedTestsHtml += "<b>Message:</b> <pre style='white-space:pre-wrap;'>$message</pre>"
+        } else {
+            $failedTestsHtml += "<b>Message:</b> (No message available)<br>"
+        }
+        $failedTestsHtml += "</div>"
+    }
+
+    $failedTestsHtml += "</details>"
+}
 $htmlContent += $failedTestsHtml
 
 # Uncovered lines collapsible per file
@@ -353,7 +459,7 @@ foreach ($class in $xml.coverage.packages.package.classes.class) {
         $uncovered = $lines | Where-Object { $_.hits -eq 0 }
         if ($uncovered) {
                 $htmlContent += "<details class='collapsible'><summary>Uncovered lines in $file</summary>"
-                $filePath = Join-Path $SourcePath ($file -replace '/', '\')
+                $filePath = Join-Path $PesterSourcePath ($file -replace '/', '\')
                 $fileLines = @()
                 if (Test-Path $filePath) {
                         $fileText = Get-Content -Path $filePath -Raw -Encoding UTF8
@@ -386,9 +492,43 @@ if ($missedCommands.Count -gt 0) {
     $htmlContent += "</table></details>"
 }
 
+foreach ($fileEntry in $pythonCoverageData.files.GetEnumerator()) {
+    $filePath = $fileEntry.Key
+    $fileStats = $fileEntry.Value
+
+    if (-Not (Test-Path $filePath)) { continue }
+
+    # Check if executed_lines or missing_lines exist
+    if (-Not $fileStats.PSObject.Properties.Name -contains 'missing_lines') {
+        continue
+    }
+
+    # Lines that were missed
+    $uncoveredLines = $fileStats.missing_lines
+
+    if ($uncoveredLines.Count -gt 0) {
+        $htmlContent += "<details class='collapsible'><summary>Uncovered lines in $filePath</summary>"
+
+        $fileLines = (Get-Content -Path $filePath -Raw -Encoding UTF8 -ErrorAction SilentlyContinue) -split "`n"
+
+        $lineObjects = $uncoveredLines | ForEach-Object {
+            $lineNum = [int]$_
+            $code = if ($fileLines.Count -ge $lineNum) { $fileLines[$lineNum - 1] } else { '' }
+            [PSCustomObject]@{ Line = $lineNum; Code = $code }
+        }
+
+        $htmlContent += "<table class='uncovered-table'><tr><th>Line</th><th>Code</th></tr>"
+        foreach ($obj in $lineObjects) {
+            $htmlContent += "<tr><td>$($obj.Line)</td><td><pre style='margin:0;'>$([System.Web.HttpUtility]::HtmlEncode($obj.Code))</pre></td></tr>"
+        }
+        $htmlContent += "</table></details>"
+    }
+}
+
+
 $htmlContent += '</div>'
 
-$flatHtml = @('<html><head><title>FileDarr PowerShell Testing Report</title>' + $modernCss + $exportJs + '</head><body>')
+$flatHtml = @('<html><head><title>FileDarr Testing Report</title>' + $modernCss + $exportJs + '</head><body>')
 $flatHtml += $htmlContent | ForEach-Object { $_.ToString() }
 $flatHtml += '</body></html>'
 $flatHtml -join "`n" | Out-File $htmlPath -Encoding UTF8
