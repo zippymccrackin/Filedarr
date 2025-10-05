@@ -6,7 +6,6 @@ from unittest.mock import patch, MagicMock
 
 import app.meta_lookup.tmdb as tmdb_service
 
-
 @pytest.fixture
 def temp_db(monkeypatch, tmp_path):
     """
@@ -27,7 +26,6 @@ def temp_db(monkeypatch, tmp_path):
         conn.commit()
 
     return str(db_path)
-
 
 def test_get_tvdb_token_success(monkeypatch):
     """Ensure a token is extracted when API call succeeds."""

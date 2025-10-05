@@ -109,7 +109,7 @@ def test_lookup_tvdb_info_api_call(temp_db, monkeypatch):
         assert row and json.loads(row[0])["name"] == "My Show"
 
 @pytest.mark.asyncio
-async def test_lookup_tvdb_info_exception(monkeypatch):
+async def test_lookup_tvdb_info_exception(temp_db, monkeypatch):
     # Patch get_tvdb_token to raise an exception
     def raise_exception(api_key):
         raise RuntimeError("forced error")

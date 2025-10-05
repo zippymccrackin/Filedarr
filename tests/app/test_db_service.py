@@ -17,11 +17,9 @@ def temp_db(monkeypatch, tmp_path):
     yield
     # No teardown needed: tmp_path is cleaned automatically
 
-
 def get_all_rows(table):
     with sqlite3.connect(db_service.DB_FILE) as conn:
         return list(conn.execute(f"SELECT * FROM {table}"))
-
 
 def test_init_db_creates_tables():
     db_service.init_db()
