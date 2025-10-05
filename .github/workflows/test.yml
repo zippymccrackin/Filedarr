@@ -60,7 +60,7 @@ jobs:
           }
 
           $pyOutputFile = "coverage\py\coverage.json"
-          $data = Get-Content $pyOutputFile | ConvertFrom-Json
+          $data = Get-Content $pyOutputFile | ConvertFrom-Json -AsHashtable
           $coverage = [int]$data.totals.percent_covered
           Write-Host "Reported coverage: $coverage%"
           if ($coverage -lt 80) {
