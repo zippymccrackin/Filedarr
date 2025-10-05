@@ -20,6 +20,11 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-cov pytest-json-report pytest-asyncio
 
+      - name: Create .env file
+        run: |
+          echo "TVDB_API_KEY=tvdbtestkey123" >> .env
+          echo "TMDB_API_KEY=tmdbtestkey010" >> .env
+
       - name: Run custom test script
         shell: pwsh
         run: |
