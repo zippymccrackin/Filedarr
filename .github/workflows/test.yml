@@ -14,6 +14,17 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-json-report pytest-asyncio
+
+      - name: Create .env file
+        run: |
+          echo "TVDB_API_KEY=tvdbtestkey123" >> .env
+          echo "TMDB_API_KEY=tmdbtestkey010" >> .env
+
       - name: Run custom test script
         shell: pwsh
         run: |
@@ -23,22 +34,38 @@ jobs:
       - name: Verify output file exists
         shell: pwsh
         run: |
-          $outputFile = "coverage\coverage-summary.json"
-          if (-not (Test-Path $outputFile)) {
-            Write-Error "Test Coverage file not found!"
+          $psOutputFile = "coverage\pester\coverage-summary.json"
+          if (-not (Test-Path $psOutputFile)) {
+            Write-Error "Test Coverage file not found at $psOutputFile!"
+            exit 1
+          }
+          $pyOutputFile = "coverage\py\coverage.json"
+          if (-not (Test-Path $pyOutputFile)) {
+            Write-Error "Test Coverage file not found at $pyOutputFile!"
             exit 1
           }
 
       - name: Parse coverage file
         shell: pwsh
         run: |
-          $outputFile = "coverage\coverage-summary.json"
-          $data = Get-Content $outputFile | ConvertFrom-Json
+          $psOutputFile = "coverage\pester\coverage-summary.json"
+          $data = Get-Content $psOutputFile | ConvertFrom-Json
           $coverage = [int]$data.Summary.PercentCoverage
           Write-Host "Reported coverage: $coverage%"
           if ($coverage -lt 80) {
             Write-Error "Coverage below required threshold (80%)."
             exit 1
           } else {
-            Write-Host "Coverage OK."
+            Write-Host "Pester Coverage OK."
+          }
+
+          $pyOutputFile = "coverage\py\coverage.json"
+          $data = Get-Content $pyOutputFile | ConvertFrom-Json -AsHashtable
+          $coverage = [int]$data.totals.percent_covered
+          Write-Host "Reported coverage: $coverage%"
+          if ($coverage -lt 80) {
+            Write-Error "Coverage below required threshold (80%)."
+            exit 1
+          } else {
+            Write-Host "Python Coverage OK."
           }
