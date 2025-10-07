@@ -1,3 +1,13 @@
+# Add a Debug switch to enable Write-Debug output
+param(
+    [switch]$Debug
+)
+
+if ($Debug) {
+    $DebugPreference = "Continue"
+    Write-Host "Debug output enabled."
+}
+
 # Powershell Tester
 
 $PesterTestPath = (Resolve-Path "./tests/ps").Path

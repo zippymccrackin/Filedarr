@@ -2,7 +2,32 @@
 BeforeAll {
     $Global:SetDestinationPathListeners = @()
     $Global:TransferWrapupListeners = @()
+    $Global:ChunkTransferredListeners = @()
+    $Global:TransferCompleteListeners = @()
 
+    $includePath = Join-Path $PSScriptRoot '..\..\..\ps\core\util.ps1' | Resolve-Path
+    . $includePath
+    
+    $Global:Config = @{
+        modules = @(
+            @{
+                module_name = 'staging'
+                variables = @(
+                    @{ stagingPath = '\tmp\staging\' }
+                )
+                enabled = $True
+            },
+            @{
+                module_name = 'notify_server'
+                variables = @(
+                    @{ url = 'http://localhost:3565' }
+                )
+                enabled = $True
+            }
+        )
+    }
+
+    $script:NotifyServerIncluded = $False
     $includePath = Join-Path $PSScriptRoot '..\..\..\ps\hooks\staging.ps1' | Resolve-Path
     . $includePath
 
@@ -22,6 +47,117 @@ AfterAll {
 Describe "staging" {
     BeforeEach {
         $Script:destinationFilePath = ""
+    }
+    Context "Initialization" {
+        It "should skip inclusion if module is disabled" {
+            $Global:SetDestinationPathListeners = @()
+            $Global:TransferWrapupListeners = @()
+            $Global:ChunkTransferredListeners = @()
+            $Global:TransferCompleteListeners = @()
+
+            $Global:Config = @{
+                modules = @(
+                    @{
+                        module_name = 'staging'
+                        variables = @(
+                            @{ stagingPath = '\tmp\staging\' }
+                        )
+                        enabled = $False
+                    },
+                    @{
+                        module_name = 'notify_server'
+                        variables = @(
+                            @{ url = 'http://localhost:3565' }
+                        )
+                        enabled = $True
+                    }
+                )
+            }
+            
+            $script:NotifyServerIncluded = $False
+            $includePath = Join-Path $PSScriptRoot '..\..\..\ps\hooks\staging.ps1' | Resolve-Path
+            . $includePath
+
+            $Global:SetDestinationPathListeners.Count | Should -Be 0
+            $Global:TransferWrapupListeners.Count | Should -Be 0
+            $Global:ChunkTransferredListeners.Count | Should -Be 0
+            $Global:TransferCompleteListeners.Count | Should -Be 0
+            $script:NotifyServerIncluded | Should -Be $False
+            Module-Enabled 'staging' | Should -Be $False
+        }
+        It "should skip notify_server inclusion if module is disabled" {
+            $Global:SetDestinationPathListeners = @()
+            $Global:TransferWrapupListeners = @()
+            $Global:ChunkTransferredListeners = @()
+            $Global:TransferCompleteListeners = @()
+
+            $Global:Config = @{
+                modules = @(
+                    @{
+                        module_name = 'staging'
+                        variables = @(
+                            @{ stagingPath = '\tmp\staging\' }
+                        )
+                        enabled = $True
+                    },
+                    @{
+                        module_name = 'notify_server'
+                        variables = @(
+                            @{ url = 'http://localhost:3565' }
+                        )
+                        enabled = $False
+                    }
+                )
+            }
+            
+            $script:NotifyServerIncluded = $False
+            $includePath = Join-Path $PSScriptRoot '..\..\..\ps\hooks\staging.ps1' | Resolve-Path
+            . $includePath
+
+            $Global:SetDestinationPathListeners.Count | Should -Be 1
+            $Global:TransferWrapupListeners.Count | Should -Be 1
+            $Global:ChunkTransferredListeners.Count | Should -Be 0
+            $Global:TransferCompleteListeners.Count | Should -Be 0
+            $script:NotifyServerIncluded | Should -Be $False
+            Module-Enabled 'notify_server' | Should -Be $False
+        }
+        It "should include staging and notify_server if both modules are enabled" {
+            $Global:SetDestinationPathListeners = @()
+            $Global:TransferWrapupListeners = @()
+            $Global:ChunkTransferredListeners = @()
+            $Global:TransferCompleteListeners = @()
+
+            $Global:Config = @{
+                modules = @(
+                    @{
+                        module_name = 'staging'
+                        variables = @(
+                            @{ stagingPath = '\tmp\staging\' }
+                        )
+                        enabled = $True
+                    },
+                    @{
+                        module_name = 'notify_server'
+                        variables = @(
+                            @{ url = 'http://localhost:3565' }
+                        )
+                        enabled = $True
+                    }
+                )
+            }
+            
+            $script:NotifyServerIncluded = $False
+            $includePath = Join-Path $PSScriptRoot '..\..\..\ps\hooks\staging.ps1' | Resolve-Path
+            . $includePath
+
+            $Global:SetDestinationPathListeners.Count | Should -Be 1
+            $Global:TransferWrapupListeners.Count | Should -Be 1
+            $Global:ChunkTransferredListeners.Count | Should -Be 1
+            $Global:TransferCompleteListeners.Count | Should -Be 1
+            $script:NotifyServerIncluded | Should -Be $True
+            Module-Enabled 'staging' | Should -Be $True
+            Module-Enabled 'notify_server' | Should -Be $True
+        }
     }
     Context "SetDestinationPathListeners" {
         It "should set the correct path to staging" {
@@ -119,6 +255,44 @@ Describe "staging" {
             }
 
             Assert-MockCalled New-Item -ParameterFilter { $Path -eq "Q:\Test\Path" -and $ItemType -eq 'Directory' } -Exactly 0
+        }
+        It "should not call SendStatusToServer if notify_server module is disabled" {
+            $Global:SetDestinationPathListeners = @()
+            $Global:TransferWrapupListeners = @()
+
+            $Global:Config = @{
+                modules = @(
+                    @{
+                        module_name = 'staging'
+                        variables = @(
+                            @{ stagingPath = '\tmp\staging\' }
+                        )
+                        enabled = $True
+                    },
+                    @{
+                        module_name = 'notify_server'
+                        variables = @(
+                            @{ url = 'http://localhost:3565' }
+                        )
+                        enabled = $False
+                    }
+                )
+            }
+
+            $includePath = Join-Path $PSScriptRoot '..\..\..\ps\hooks\staging.ps1' | Resolve-Path
+            . $includePath
+
+            Mock SendStatusToServer { return $null }
+            Mock Move-Item { return $null }
+            Mock New-Item { return $null }
+
+            $Script:destinationFilePath = "Q:\Test\Path"
+
+            . $TransferWrapupListeners[0] @{
+                destination = "Q:\Test\Path\uniqueFileName.txt"
+            }
+
+            Assert-MockCalled SendStatusToServer -Exactly 0
         }
     }
 }

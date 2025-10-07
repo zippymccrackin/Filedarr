@@ -3,6 +3,21 @@ BeforeAll {
     $Global:ChunkTransferredListeners = @()
     $Global:TransferCompleteListeners = @()
 
+    $includePath = Join-Path $PSScriptRoot '..\..\..\ps\core\util.ps1' | Resolve-Path
+    . $includePath
+
+    $Global:Config = @{
+        modules = @(
+            @{
+                module_name = 'notify_server'
+                variables = @(
+                    @{ url = 'http://localhost:3565' }
+                )
+                enabled = $True
+            }
+        )
+    }
+
     $includePath = Join-Path $PSScriptRoot '..\..\..\ps\hooks\notify_server.ps1' | Resolve-Path
     . $includePath
 }
@@ -11,6 +26,51 @@ AfterAll {
     $Global:TransferCompleteListeners = $Null
 }
 Describe "Notify-Server" {
+    BeforeEach {
+        $Global:ChunkTransferredListeners = @()
+        $Global:TransferCompleteListeners = @()
+
+        $Global:Config = @{
+            modules = @(
+                @{
+                    module_name = 'notify_server'
+                    variables = @(
+                        @{ url = 'http://localhost:3565' }
+                    )
+                    enabled = $True
+                }
+            )
+        }
+
+        Remove-Variable -Name NotifyServerIncluded -Scope Script -ErrorAction SilentlyContinue
+        $includePath = Join-Path $PSScriptRoot '..\..\..\ps\hooks\notify_server.ps1' | Resolve-Path
+        . $includePath
+    }
+    Context "Initialization" {
+        It "should skip inclusion if module is disabled" {
+            $Global:ChunkTransferredListeners = @()
+            $Global:TransferCompleteListeners = @()
+
+            $Global:Config = @{
+                modules = @(
+                    @{
+                        module_name = 'notify_server'
+                        variables = @(
+                            @{ url = 'http://localhost:3565' }
+                        )
+                        enabled = $False
+                    }
+                )
+            }
+
+            Remove-Variable -Name NotifyServerIncluded -Scope Script -ErrorAction SilentlyContinue
+            $notifyPath = Join-Path $PSScriptRoot '..\..\..\ps\hooks\notify_server.ps1' | Resolve-Path
+            . $notifyPath
+
+            $Global:ChunkTransferredListeners.Count | Should -Be 0
+            $Global:TransferCompleteListeners.Count | Should -Be 0
+        }
+    }
     Context "ChunkTransferredListeners" {
         It "should add the correct message to status" {
             $Script:message = $Null

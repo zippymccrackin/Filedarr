@@ -1,9 +1,21 @@
 Write-Debug "plex_slowdown.ps1"
 
+$utilPath = Join-Path $PSScriptRoot '..\core\util.ps1' | Resolve-Path
+. $utilPath
+
+if ( -not ( Module-Enabled 'plex_slowdown' ) ) {
+    Write-Debug "plex_slowdown module is disabled, skipping inclusion"
+    return
+}
+
+$Script:variables = Get-Module-Variables 'plex_slowdown'
+$Script:variables.chunkSize = Convert-ToBytes $Script:variables.chunkSize
+
 # Plex Setup
-$Script:plexToken = "Uw2D4x6pX3Ue7CDF6Zan"
-$Script:plexUrl = "http://localhost:32400/status/sessions?X-Plex-Token=$plexToken"
-$Script:IntervalCheckSeconds = 5
+$Script:plexToken = $Script:variables.plex_token
+$Script:plexUrl = $Script:variables.plex_url
+$Script:plexUrl = "$Script:plexUrl/status/sessions?X-Plex-Token=$plexToken"
+$Script:IntervalCheckSeconds = $Script:variables.intervalCheckSeconds
 
 $Script:plexStreaming = $False
 
@@ -14,7 +26,7 @@ $Global:ChunkSizeListeners += {
     Update-PlexStreamingStatus
 
     if ($Script:plexStreaming) {
-        $chunkSize = 1MB
+        $chunkSize = $Script:variables.chunkSize
     }
 
     return $chunkSize
@@ -28,7 +40,7 @@ $Global:DelayMsListeners += {
     Update-PlexStreamingStatus
 
     if ($Script:plexStreaming) {
-        $delayMs = 150
+        $delayMs = $Script:variables.delayMs
     }
 
     return $delayMs

@@ -1,5 +1,10 @@
-$defaultChunkSize = 4MB
-$defaultDelayMs = 0
+Get-Content .env | ForEach-Object {
+    if ($_ -match '^(\\w+)=(.*)$') {
+        $name = $matches[1]
+        $value = $matches[2]
+        $env:$name = $value
+    }
+}
 
 $importerScriptPath = $MyInvocation.MyCommand.Path
 $importerScriptDir = Split-Path -Parent $importerScriptPath
@@ -18,6 +23,10 @@ Get-ChildItem "$importerScriptDir\ps\hooks\*.ps1" | ForEach-Object { . $_.FullNa
 
 # Load all service scripts
 Get-ChildItem "$importerScriptDir\ps\services\*.ps1" | ForEach-Object { . $_.FullName }
+
+# Set defaults from config
+$defaultChunkSize = $Global:Config.defaultChunkSize
+$defaultDelayMs = $Global:Config.defaultDelayMs
 
 # Fill the data from the services
 Write-Debug "Notify-Listeners call on Services (Length of $($Services.Length))"
@@ -56,6 +65,8 @@ Write-Debug "Notify-Listeners call on SetDestinationPathListeners (Length of $($
 $filepath = Notify-Listeners $SetDestinationPathListeners $(Split-Path -LiteralPath $destFile)
 
 $destFile = Join-Path $filepath $filename
+
+Write-Host "Destination File: $destFile"
 
 # Create destination directory if needed
 $destDir = Split-Path -LiteralPath $destFile
@@ -178,6 +189,11 @@ try {
 
 } catch {
     Report-Error "Error during copy: $_"
+    Write-Host "Message: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "Script:  $($_.InvocationInfo.ScriptName)"
+    Write-Host "Line:    $($_.InvocationInfo.ScriptLineNumber)"
+    Write-Host "Code:    $($_.InvocationInfo.Line.Trim())"
+    Write-Host "Position: $($_.InvocationInfo.PositionMessage)"
     $sourceStream.Close()
     $destStream.Close()
 

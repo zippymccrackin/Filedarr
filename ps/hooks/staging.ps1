@@ -1,18 +1,35 @@
+$utilPath = Join-Path $PSScriptRoot '..\core\util.ps1' | Resolve-Path
+. $utilPath
+
+if ( -not ( Module-Enabled 'staging' ) ) {
+    Write-Debug "staging module is disabled, skipping inclusion"
+    return
+}
+
+$Script:variables = Get-Module-Variables 'staging'
+
 Write-Debug "Init staging.ps1"
 
-Write-Debug "Require notify_server.ps1"
-$notifyServerPath = Join-Path $PSScriptRoot 'notify_server.ps1' | Resolve-Path
-. $notifyServerPath
-
 $Script:destinationFilePath = ""
-$Script:stagingPath = "\tmp\staging\"
+$Script:stagingPath = $Script:variables.stagingPath
+Write-Debug "All staging variables: $( $Script:variables | ConvertTo-Json -Depth 5 )"
+Write-Debug "Staging path variable set to: $Script:stagingPath"
+
+Write-Debug "Require notify_server.ps1"
+if ( Module-Enabled 'notify_server' ) {
+    $notifyServerPath = Join-Path $PSScriptRoot 'notify_server.ps1' | Resolve-Path
+    . $notifyServerPath
+} else {
+    Write-Debug "notify_server module is not enabled, skipping inclusion"
+}
 
 Write-Debug "    Adding to SetDestinationPathListeners (Length $($SetDestinationPathListeners.Length))"
-$SetDestinationPathListeners += {
+$Global:SetDestinationPathListeners += {
     param($filepath)
 
     $Script:destinationFilePath = $filepath
 
+    Write-Debug "Staging path variable: $Script:stagingPath"
     $drive = [System.IO.Path]::getPathRoot($filepath)
     $stagingPath = Join-Path $drive $Script:stagingPath
 
@@ -28,12 +45,14 @@ $SetDestinationPathListeners += {
 Write-Debug "    Done adding to SetDestinationPathListeners (Length $($SetDestinationPathListeners.Length))"
 
 Write-Debug "    Adding to TransferWrapupListeners (Length $($TransferWrapupListeners.Length))"
-$TransferWrapupListeners += {
+$Global:TransferWrapupListeners += {
     param($status)
 
     $status['message'] = "Moving file from staging"
 
-    SendStatusToServer -status $status
+    if (Module-Enabled 'notify_server') {
+        SendStatusToServer -status $status
+    }
 
     $stagedFile = $status['destination']
 
