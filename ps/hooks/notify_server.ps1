@@ -1,9 +1,18 @@
+$utilPath = Join-Path $PSScriptRoot '..\core\util.ps1' | Resolve-Path
+. $utilPath
+
+if ( -not (Module-Enabled 'notify_server') ) {
+    Write-Debug "notify_server module is disabled, skipping inclusion"
+    return
+}
+
 $script:NotifyServerIncluded = $script:NotifyServerIncluded -or $false
 if ($script:NotifyServerIncluded) { return }
 $script:NotifyServerIncluded = $true
 
-$utilPath = Join-Path $PSScriptRoot '..\core\util.ps1' | Resolve-Path
-. $utilPath
+$Script:variables = Get-Module-Variables 'notify_server'
+$Script:url = $Script:variables.url
+Write-Debug "Notify server URL: $Script:url"
 
 Write-Debug "Init notify_server.ps1"
 
@@ -32,7 +41,7 @@ function SendStatusToServer {
 
     $id = $status['id']
 
-    $webhookUrl = "http://localhost:3565/transfer/$id"
+    $webhookUrl = "$Script:url/transfer/$id"
 
     $json = $status | ConvertTo-Json -Depth 3
     $utf8 = [System.Text.Encoding]::UTF8.GetBytes($json)

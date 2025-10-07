@@ -1,6 +1,14 @@
 $utilPath = Join-Path $PSScriptRoot '..\core\util.ps1' | Resolve-Path
 . $utilPath
 
+if ( -not (Module-Enabled 'report_error') ) {
+    Write-Debug "report_error module is disabled, skipping inclusion"
+    return
+}
+
+$Script:variables = Get-Module-Variables 'report_error'
+$Script:url = $Script:variables.url
+
 Write-Debug "Init report_error.ps1"
 
 Write-Debug "    Adding to ReportErrorListeners (Length $($ReportErrorListeners.Length))"
@@ -14,10 +22,11 @@ Write-Debug "    Done adding to ReportErrorListeners (Length $($ReportErrorListe
 function SendErrorToServer {
     param($msg)
 
-    $webhookUrl = "http://localhost:3565/error"
+    $webhookUrl = "$Script:url/error"
 
     $json = @{
         message = $msg
+        callStack = (Get-PSCallStack | Out-String)
     } | ConvertTo-Json -Depth 3
     $utf8 = [System.Text.Encoding]::UTF8.GetBytes($json)
 

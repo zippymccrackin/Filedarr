@@ -3,10 +3,27 @@ BeforeAll {
     $Global:ChunkSizeListeners = @()
     $Global:DelayMsListeners = @()
 
-    $includePath = Join-Path $PSScriptRoot '..\..\..\ps\hooks\plex_slowdown.ps1' | Resolve-Path
-    . $includePath
     # Include Util for Notify-Listeners
     $includePath = Join-Path $PSScriptRoot '..\..\..\ps\core\util.ps1' | Resolve-Path
+    . $includePath
+    
+    $Global:Config = @{
+        modules = @(
+            @{
+                module_name = 'plex_slowdown'
+                variables = @(
+                    @{ plex_token = 'token' },
+                    @{ plex_url = 'http://localhost:32400' },
+                    @{ intervalCheckSeconds = 5 },
+                    @{ chunkSize = '1MB' },
+                    @{ delayMs = 150 }
+                )
+                enabled = $True
+            }
+        )
+    }
+
+    $includePath = Join-Path $PSScriptRoot '..\..\..\ps\hooks\plex_slowdown.ps1' | Resolve-Path
     . $includePath
 }
 AfterAll {
@@ -14,7 +31,64 @@ AfterAll {
     $Global:DelayMsListeners = $Null
 }
 
-Describe "plex_shutdown" {
+Describe "plex_slowdown" {
+    BeforeEach {
+        $Global:ChunkSizeListeners = @()
+        $Global:DelayMsListeners = @()
+
+        $Global:Config = @{
+            modules = @(
+                @{
+                    module_name = 'plex_slowdown'
+                    variables = @(
+                        @{ plex_token = 'token' },
+                        @{ plex_url = 'http://localhost:32400' },
+                        @{ intervalCheckSeconds = 5 },
+                        @{ chunkSize = '1MB' },
+                        @{ delayMs = 150 }
+                    )
+                    enabled = $True
+                }
+            )
+        }
+        
+        $includePath = Join-Path $PSScriptRoot '..\..\..\ps\hooks\plex_slowdown.ps1' | Resolve-Path
+        . $includePath
+    }
+    Context "Initialization" {
+        It "should skip inclusion if module is disabled" {
+            $Global:ChunkSizeListeners = @()
+            $Global:DelayMsListeners = @()
+
+            $Global:Config = @{
+                modules = @(
+                    @{
+                        module_name = 'plex_slowdown'
+                        variables = @(
+                            @{ plex_token = 'token' },
+                            @{ plex_url = 'http://localhost:32400' },
+                            @{ intervalCheckSeconds = 5 },
+                            @{ chunkSize = '1MB' },
+                            @{ delayMs = 150 }
+                        )
+                        enabled = $False
+                    }
+                )
+            }
+            
+            $includePath = Join-Path $PSScriptRoot '..\..\..\ps\hooks\plex_slowdown.ps1' | Resolve-Path
+            . $includePath
+
+            $Script:called = $False
+            Mock Update-PlexStreamingStatus {
+                $Script:called = $True
+            }
+
+            Notify-Listeners $Global:ChunkSizeListeners -Return 3MB
+
+            $Script:called | Should -Be $False
+        }
+    }
     Context "ChunkSizeListeners" {
         It "should call Update-PlexStreamingStatus" {
             $Script:called = $False

@@ -2,6 +2,21 @@
 BeforeAll {
     $Global:SetStatusInformationListeners = @()
 
+    $includePath = Join-Path $PSScriptRoot '..\..\..\ps\core\util.ps1' | Resolve-Path
+    . $includePath
+    
+    $Global:Config = @{
+        modules = @(
+            @{
+                module_name = 'speed_report'
+                variables = @(
+                    @{ intervalCheckSeconds = 5 }
+                )
+                enabled = $True
+            }
+        )
+    }
+    
     $includePath = Join-Path $PSScriptRoot '..\..\..\ps\hooks\speed_report.ps1' | Resolve-Path
     . $includePath
 }
@@ -13,6 +28,42 @@ Describe "speed_report" {
     BeforeEach {
         # Clear stats before each test
         $Script:recentStats = @()
+
+        $Global:Config = @{
+            modules = @(
+                @{
+                    module_name = 'speed_report'
+                    variables = @(
+                        @{ intervalCheckSeconds = 5 }
+                    )
+                    enabled = $True
+                }
+            )
+        }
+        $includePath = Join-Path $PSScriptRoot '..\..\..\ps\hooks\speed_report.ps1' | Resolve-Path
+        . $includePath
+    }
+    Context "Initialization" {
+        It "should skip inclusion if module is disabled" {
+            $Global:SetStatusInformationListeners = @()
+
+            $Global:Config = @{
+                modules = @(
+                    @{
+                        module_name = 'speed_report'
+                        variables = @(
+                            @{ intervalCheckSeconds = 5 }
+                        )
+                        enabled = $False
+                    }
+                )
+            }
+
+            $includePath = Join-Path $PSScriptRoot '..\..\..\ps\hooks\speed_report.ps1' | Resolve-Path
+            . $includePath
+
+            $Global:SetStatusInformationListeners.Count | Should -Be 0
+        }
     }
     Context "SetStatusInformationListeners" {
         It "should calculate speed and eta correctly for a normal case" {

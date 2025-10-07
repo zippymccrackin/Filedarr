@@ -1,3 +1,13 @@
+$utilPath = Join-Path $PSScriptRoot '..\core\util.ps1' | Resolve-Path
+. $utilPath
+
+if ( -not ( Module-Enabled 'speed_report' ) ) {
+    Write-Debug "speed_report module is disabled, skipping inclusion"
+    return
+}
+
+$Script:variables = Get-Module-Variables 'speed_report'
+
 Write-Debug "Init speed_report.ps1"
 
 $Script:recentStats = @()  # list of @{time=..., bytes=...}
@@ -15,7 +25,7 @@ $Global:SetStatusInformationListeners += {
     # Remove entries older than 5 seconds
     $Script:recentStats = @( 
         if ($Script:recentStats -is [System.Collections.IEnumerable]) {
-            $Script:recentStats | Where-Object { $_ -and ($now - $_.time).TotalSeconds -le 5 }
+            $Script:recentStats | Where-Object { $_ -and ($now - $_.time).TotalSeconds -le $Script:variables.intervalCheckSeconds }
         } elseif ($Script:recentStats) {
             if (($now - $Script:recentStats.time).TotalSeconds -le 5) { $Script:recentStats }
         }

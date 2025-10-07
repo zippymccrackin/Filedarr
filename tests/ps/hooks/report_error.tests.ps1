@@ -2,6 +2,21 @@
 BeforeAll {
     $Global:ReportErrorListeners = @()
 
+    $includePath = Join-Path $PSScriptRoot '..\..\..\ps\core\util.ps1' | Resolve-Path
+    . $includePath
+    
+    $Global:Config = @{
+        modules = @(
+            @{
+                module_name = 'report_error'
+                variables = @(
+                    @{ url = 'http://localhost:3565' }
+                )
+                enabled = $True
+            }
+        )
+    }
+    
     $includePath = Join-Path $PSScriptRoot '..\..\..\ps\hooks\report_error.ps1' | Resolve-Path
     . $includePath
 }
@@ -9,6 +24,46 @@ AfterAll {
     $Global:ReportErrorListeners = $Null
 }
 Describe "report_error" {
+    BeforeEach {
+        $Global:ReportErrorListeners = @()
+
+        $Global:Config = @{
+            modules = @(
+                @{
+                    module_name = 'report_error'
+                    variables = @(
+                        @{ url = 'http://localhost:3565' }
+                    )
+                    enabled = $True
+                }
+            )
+        }
+        
+        $includePath = Join-Path $PSScriptRoot '..\..\..\ps\hooks\report_error.ps1' | Resolve-Path
+        . $includePath
+    }
+    Context "Initialization" {
+        It "should skip inclusion if module is disabled" {
+            $Global:ReportErrorListeners = @()
+
+            $Global:Config = @{
+                modules = @(
+                    @{
+                        module_name = 'report_error'
+                        variables = @(
+                            @{ url = 'http://localhost:3565' }
+                        )
+                        enabled = $False
+                    }
+                )
+            }
+            
+            $includePath = Join-Path $PSScriptRoot '..\..\..\ps\hooks\report_error.ps1' | Resolve-Path
+            . $includePath
+
+            $Global:ReportErrorListeners.Count | Should -Be 0
+        }
+    }
     Context "ReportErrorListeners" {
         It "should call SendErrorToServer with the provided error" {
             $Script:errorMessage = $Null

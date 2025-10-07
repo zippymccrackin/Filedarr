@@ -1,0 +1,25 @@
+config:
+  - defaultChunkSize: 4.1MB
+  - defaultDelayMs: 0
+
+modules:
+  - module_name: plex_slowdown
+    enabled: false
+    variables:
+    - plex_token: env:PLEX_TOKEN
+    - plex_url: http://localhost:32400
+    - intervalCheckSeconds: 5
+    - chunkSize: 1MB
+    - delayMs: 150
+  - module_name: report_error
+    variables:
+    - url: http://localhost:3565
+  - module_name: notify_server
+    variables:
+    - url: http://localhost:3565
+  - module_name: speed_report
+    variables:
+    - intervalCheckSeconds: 5
+  - module_name: staging
+    variables:
+    - stagingPath: \tmp\staging\
