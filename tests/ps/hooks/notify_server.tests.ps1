@@ -70,6 +70,16 @@ Describe "Notify-Server" {
             $Global:ChunkTransferredListeners.Count | Should -Be 0
             $Global:TransferCompleteListeners.Count | Should -Be 0
         }
+        It "should only include notify_server.ps1 once" {
+            Remove-Variable -Name NotifyServerIncluded -Scope Script -ErrorAction SilentlyContinue
+            $notifyPath = Join-Path $PSScriptRoot '..\..\..\ps\hooks\notify_server.ps1' | Resolve-Path
+            . $notifyPath
+            $first = $script:NotifyServerIncluded
+            . $notifyPath
+            $second = $script:NotifyServerIncluded
+            $first | Should -BeTrue
+            $second | Should -BeTrue
+        }
     }
     Context "ChunkTransferredListeners" {
         It "should add the correct message to status" {
@@ -98,6 +108,34 @@ Describe "Notify-Server" {
 
             $Script:message | Should -Be "File transfer complete"
         }
+        It "should call SendStatusToServer with WaitForJob true" {
+            $Script:calledSendStatusWaitForJob = $False
+            Mock SendStatusToServer {
+                param($status, [bool]$WaitForJob=$False)
+
+                $Script:calledSendStatusWaitForJob = $WaitForJob
+
+                . $function:SendStatusToServer $status $WaitForJob
+            }
+
+            . $Global:TransferCompleteListeners[0] @{ id = "test123" }
+
+            $Script:calledSendStatusWaitForJob | Should -Be $True
+        }
+        It "should wait for the job to complete" {
+            $Script:jobCompleted = $False
+
+            Mock Start-Job {
+                return @{ Id = 1 } # Dummy job object
+            }
+            Mock Wait-Job {
+                $Script:jobCompleted = $true
+            }
+
+            . $Global:TransferCompleteListeners[0] @{ id = "test123" }
+
+            $Script:jobCompleted | Should -Be $True
+        }
     }
     Context "SendStatusToServer" {
         It "should call the correct url with the provided id" {
@@ -105,6 +143,11 @@ Describe "Notify-Server" {
             Mock Invoke-RestMethod {
                 param($Uri, $Method, $Body, $ContentType)
                 $Script:calledUrl = $Uri
+            }
+            Mock Start-Job {
+                param($ScriptBlock, $ArgumentList)
+                & $ScriptBlock @ArgumentList
+                return @{ Id = 1 } # Dummy job object
             }
 
             SendStatusToServer @{ id = "abc123"; message = "test" }
@@ -121,6 +164,11 @@ Describe "Notify-Server" {
                 )
                 $Script:reportedError = $errorMsg
             }
+            Mock Start-Job {
+                param($ScriptBlock, $ArgumentList)
+                & $ScriptBlock @ArgumentList
+                return @{ Id = 1 } # Dummy job object
+            }
 
             $status = @{ id = "abc123"; message = "test" }
             SendStatusToServer $status
@@ -133,6 +181,11 @@ Describe "Notify-Server" {
                 param($Uri, $method, $body, $ContentType)
                 $Script:capturedBody = $Body
             }
+            Mock Start-Job {
+                param($ScriptBlock, $ArgumentList)
+                & $ScriptBlock @ArgumentList
+                return @{ Id = 1 } # Dummy job object
+            }
 
             $status = @{ id = "abc123"; message = "some text" }
             SendStatusToServer $status
@@ -141,15 +194,67 @@ Describe "Notify-Server" {
             $decoded | Should -Match '"id"\s*:\s*"abc123"'
             $decoded | Should -Match '"message"\s*:\s*"some text"'
         }
-    }
-    It "should only include notify_server.ps1 once" {
-        Remove-Variable -Name NotifyServerIncluded -Scope Script -ErrorAction SilentlyContinue
-        $notifyPath = Join-Path $PSScriptRoot '..\..\..\ps\hooks\notify_server.ps1' | Resolve-Path
-        . $notifyPath
-        $first = $script:NotifyServerIncluded
-        . $notifyPath
-        $second = $script:NotifyServerIncluded
-        $first | Should -BeTrue
-        $second | Should -BeTrue
+        It "should increment the sequence number with each call" {
+            $Script:sequence = 0
+            
+            $Script:sequences = @()
+            Mock Invoke-RestMethod {
+                param($Uri, $method, $body, $ContentType)
+                $decoded = [System.Text.Encoding]::UTF8.GetString($body)
+                $json = $decoded | ConvertFrom-Json
+                $Script:sequences += $json.sequence
+            }
+            Mock Start-Job {
+                param($ScriptBlock, $ArgumentList)
+                & $ScriptBlock @ArgumentList
+                return @{ Id = 1 } # Dummy job object
+            }
+
+            $status = @{ id = "abc123"; message = "some text" }
+            SendStatusToServer $status
+            SendStatusToServer $status
+            SendStatusToServer $status
+
+            $Script:sequences | Should -Be @(0, 1, 2)
+        }
+        It "should call Invoke-RestMethod in a background job" {
+            $Script:jobStarted = $False
+            Mock Start-Job {
+                $Script:jobStarted = $True
+                return @{ Id = 1 } # Dummy job object
+            }
+            Mock Invoke-RestMethod {
+                param($Uri, $method, $body, $ContentType)
+                
+                Start-Sleep -Seconds 5
+            }
+
+            $status = @{ id = "abc123"; message = "some text" }
+            $start = Get-Date
+            SendStatusToServer $status
+            $end = Get-Date
+
+            ($end - $start).TotalSeconds | Should -BeLessThan 5
+            $Script:jobStarted | Should -Be $True
+        }
+        It "should wait for the job to complete if WaitForJob is true" {
+            $Script:jobCompleted = $False
+            Mock Start-Job {
+                return @{ Id = 1 } # Dummy job object
+            }
+            Mock Wait-Job {
+                $Script:jobCompleted = $True
+            }
+            Mock Invoke-RestMethod {
+                param($Uri, $method, $body, $ContentType)
+                
+                Start-Sleep -Seconds 3
+            }
+
+            $status = @{ id = "abc123"; message = "some text" }
+            SendStatusToServer $status -WaitForJob $True
+
+            $Script:jobCompleted | Should -Be $True
+        }
     }
 }

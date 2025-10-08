@@ -1,3 +1,7 @@
+# Set ProgressPreference to silently continue to avoid progress bars in output
+$ProgressPreference = 'SilentlyContinue'
+
+# Load environment variables from .env file
 Get-Content .env | ForEach-Object {
     if ($_ -match '^(\\w+)=(.*)$') {
         $name = $matches[1]
