@@ -131,3 +131,14 @@ async def test_start_background_tasks_adds_task(monkeypatch):
 
     assert "func" in added
     assert added["func"] is not None
+
+@pytest.mark.asyncio
+async def test_load_transfer():
+    db_service.init_db()
+    sample = {"id": "456", "timestamp": time.time(), "foo": "baz"}
+    db_service.save_transfer("456", db_service.COMPLETE_STATUS, sample)
+
+    loaded = db_service.load_transfer("456")
+    assert loaded == dict(sample, status=db_service.COMPLETE_STATUS)
+
+    assert db_service.load_transfer("nonexistent") is None

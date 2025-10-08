@@ -205,3 +205,31 @@ async def test_receive_status_clients_informed_complete(monkeypatch):
     assert sent_data["data"]["meta"]["tvdbid"] == 456
     assert sent_data["data"]["tmdb"]["title"] == "Test Movie"
     assert sent_data["data"]["tvdb"]["name"] == "Test Show"
+
+@pytest.mark.asyncio
+async def test_receive_status_out_of_order(monkeypatch):
+    # Patch all external dependencies
+    monkeypatch.setattr(transfer, "clients", [MagicMock()])
+    monkeypatch.setattr("app.meta_lookup.tmdb.lookup_tmdb_info", lambda tmdbid, key: {"title": "Test Movie"})
+    monkeypatch.setattr("app.meta_lookup.tvdb.lookup_tvdb_info", lambda tvdbid, key: {"name": "Test Show"})
+    monkeypatch.setattr("app.db_service.save_transfer", lambda *a, **kw: None)
+    monkeypatch.setattr("app.db_service.load_transfer", lambda id: {"sequence": 5} if id == "out_of_order" else None)
+    monkeypatch.setattr("app.db_service.INCOMPLETE_STATUS", "incomplete")
+    monkeypatch.setattr("app.db_service.COMPLETE_STATUS", "complete")
+
+    app = Quart(__name__)
+    app.register_blueprint(transfer.transfer_bp)
+    test_client = app.test_client()
+
+    # Send an out-of-order update with lower sequence number
+    payload = {
+        "percent_complete": "50%",
+        "meta": {"tmdbid": 123, "tvdbid": 456},
+        "sequence": 3  # Lower than existing 5
+    }
+    response = await test_client.post("/transfer/out_of_order", json=payload)
+    data = await response.get_json()
+    assert data["status"] == "ignore"  # Should ignore out-of-order
+
+    # Ensure no client notifications were sent
+    transfer.clients[0].put_nowait.assert_not_called()

@@ -45,6 +45,17 @@ def save_transfer(id, status, data):
         ''', (id, status, json.dumps(data)))
         conn.commit()
 
+def load_transfer(id):
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute('SELECT data, status FROM transfers WHERE id = ?', (id,))
+        row = c.fetchone()
+        if row:
+            data = json.loads(row[0])
+            data['status'] = row[1]
+            return data
+    return None
+
 def load_all_transfers():
     transfers = []
     with sqlite3.connect(DB_FILE) as conn:
