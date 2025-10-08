@@ -118,6 +118,8 @@ async def test_delete_all_clients_informed(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_receive_status(monkeypatch):
+    from app.db_service import init_db
+    
     # Patch all external dependencies
     monkeypatch.setattr(transfer, "clients", [MagicMock()])
     monkeypatch.setattr("app.meta_lookup.tmdb.lookup_tmdb_info", lambda tmdbid, key: {"title": "Test Movie"})
@@ -130,6 +132,8 @@ async def test_receive_status(monkeypatch):
     app.register_blueprint(transfer.transfer_bp)
     test_client = app.test_client()
 
+    init_db()
+
     payload = {
         "percent_complete": "100%",
         "meta": {"tmdbid": 123, "tvdbid": 456}
@@ -140,6 +144,8 @@ async def test_receive_status(monkeypatch):
     
 @pytest.mark.asyncio
 async def test_receive_status_clients_informed(monkeypatch):
+    from app.db_service import init_db
+    
     mock_client = MagicMock()
     monkeypatch.setattr(transfer, "clients", [mock_client])
     monkeypatch.setattr("app.meta_lookup.tmdb.lookup_tmdb_info", lambda tmdbid, key: {"title": "Test Movie"})
@@ -151,6 +157,8 @@ async def test_receive_status_clients_informed(monkeypatch):
     app = Quart(__name__)
     app.register_blueprint(transfer.transfer_bp)
     test_client = app.test_client()
+    
+    init_db()
 
     payload = {
         "percent_complete": "50%",
@@ -174,6 +182,8 @@ async def test_receive_status_clients_informed(monkeypatch):
     
 @pytest.mark.asyncio
 async def test_receive_status_clients_informed_complete(monkeypatch):
+    from app.db_service import init_db
+    
     mock_client = MagicMock()
     monkeypatch.setattr(transfer, "clients", [mock_client])
     monkeypatch.setattr("app.meta_lookup.tmdb.lookup_tmdb_info", lambda tmdbid, key: {"title": "Test Movie"})
@@ -185,6 +195,8 @@ async def test_receive_status_clients_informed_complete(monkeypatch):
     app = Quart(__name__)
     app.register_blueprint(transfer.transfer_bp)
     test_client = app.test_client()
+    
+    init_db()
 
     payload = {
         "percent_complete": "100%",
