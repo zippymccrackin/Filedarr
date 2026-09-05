@@ -142,3 +142,64 @@ async def test_assets_work_from_another_working_directory(tmp_path, monkeypatch)
     client = app.test_client()
     for path in ('/style.css', '/favicon-32x32.png', '/site.webmanifest'):
         assert (await client.get(path)).status_code == 200
+
+@pytest.mark.asyncio
+async def test_failure_status_and_diagnostics_survive_server_roundtrip(tmp_path, monkeypatch):
+    monkeypatch.setattr(db_service, 'DB_FILE', str(tmp_path / 'failures.db'))
+    db_service.init_db()
+    app = Quart(__name__)
+    app.register_blueprint(transfer_bp)
+    client = app.test_client()
+    diagnostics = {'phase': 'failed', 'summary': 'Destination write failed', 'write_pending_sec': 8.2}
+    response = await client.post('/transfer/broken', json={
+        'percent_complete': '50%', 'sequence': 1, 'status': 'failed', 'diagnostics': diagnostics})
+    assert response.status_code == 200
+    saved = db_service.load_transfer('broken')
+    assert saved['status'] == 'failed'
+    assert saved['diagnostics'] == diagnostics
+    assert (await (await client.delete('/transfer/all')).get_json())['removed'] is True
+    assert db_service.load_transfer('broken') is None
+
+
+def test_importer_sends_live_diagnostics_and_network_counters(importer):
+    received = []
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            received.append(json.loads(self.rfile.read(int(self.headers['Content-Length']))))
+            self.send_response(200)
+            self.send_header('Content-Length', '0')
+            self.end_headers()
+        def log_message(self, *args):
+            pass
+    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    (importer / 'config.yml').write_text(f'''config:
+  - defaultChunkSize: 1MB
+  - defaultDelayMs: 500
+modules:
+  - module_name: notify_server
+    variables:
+      - url: http://127.0.0.1:{server.server_port}
+  - module_name: speed_report
+    variables:
+      - intervalCheckSeconds: 5
+''')
+    source, dest = importer / 'source.bin', importer / 'dest.bin'
+    source.write_bytes(bytes(range(256)) * 16384)
+    try:
+        result = run_importer(importer, source, dest)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert len(received) >= 3
+        assert received[-1]['status'] == 'complete'
+        copying = [p for p in received if p.get('diagnostics', {}).get('phase') in ('copying', 'throttling')]
+        assert copying
+        assert any(p.get('speed_mb_s', 0) > 0 for p in copying if p.get('speed_mb_s') is not None)
+        assert any(p['diagnostics']['throttle_limit_mb_s'] == 2 for p in copying)
+        for p in received:
+            assert isinstance(p['diagnostics']['network'], list)
+            assert all(isinstance(a, dict) for a in p['diagnostics']['network'])
+        assert dest.stat().st_size == 4 * 1024 * 1024
+    finally:
+        server.shutdown()
+        server.server_close()

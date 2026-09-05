@@ -95,7 +95,7 @@ Describe "speed_report" {
             $result['eta'] | Should -Be $expectedETA
         }
 
-        It "should set speed and eta to 0 when only one sample exists" {
+        It "should report unknown speed and ETA without a baseline" {
             $now = Get-Date
             $status = @{
                 timestamp   = $now
@@ -105,15 +105,16 @@ Describe "speed_report" {
 
             $result = & $SetStatusInformationListeners[0] $status
 
-            $result['speed_mb_s'] | Should -Be 0
-            $result['eta'] | Should -Be ([TimeSpan]::FromSeconds(0).ToString("hh\:mm\:ss"))
+            $result['speed_mb_s'] | Should -BeNullOrEmpty
+            $result['eta'] | Should -BeNullOrEmpty
         }
 
-        It "should remove samples older than 5 seconds" {
+        It "should remove old samples while retaining a window baseline" {
             $now = Get-Date
 
             $Script:recentStats = @(
-                [PSCustomObject]@{ time = $now.AddSeconds(-10); bytes = 0 },
+                [PSCustomObject]@{ time = $now.AddSeconds(-20); bytes = 0 },
+                [PSCustomObject]@{ time = $now.AddSeconds(-10); bytes = 10MB },
                 [PSCustomObject]@{ time = $now.AddSeconds(-4); bytes = 50MB }
             )
 
@@ -125,7 +126,7 @@ Describe "speed_report" {
 
             $result = & $SetStatusInformationListeners[0] $status
 
-            $Script:recentStats.Count | Should -Be 2  # Only 2 recent stats remain
+            $Script:recentStats.Count | Should -Be 3  # Two recent samples and one preceding baseline
             $result['speed_mb_s'] | Should -BeGreaterThan 0
         }
 
@@ -157,8 +158,23 @@ Describe "speed_report" {
 
             $result = & $SetStatusInformationListeners[0] $status
 
-            $result['eta'] | Should -Be ([TimeSpan]::FromSeconds(0).ToString("hh\:mm\:ss"))
-            $result['speed_mb_s'] | Should -Be 0
+            $result['eta'] | Should -BeNullOrEmpty
+            $result['speed_mb_s'] | Should -BeNullOrEmpty
         }
+        It "keeps a baseline when a chunk takes longer than the averaging window" {
+            $now = Get-Date
+            $null = & $SetStatusInformationListeners[0] @{ timestamp=$now.AddSeconds(-12); transferred=0; total=100MB }
+            $result = & $SetStatusInformationListeners[0] @{ timestamp=$now; transferred=12MB; total=100MB }
+            $result.speed_mb_s | Should -Be 1
+            $result.eta | Should -Be '00:01:28'
+        }
+        It "shows zero measured speed but unknown ETA during a true stall" {
+            $now = Get-Date
+            $null = & $SetStatusInformationListeners[0] @{ timestamp=$now.AddSeconds(-6); transferred=12MB; total=100MB }
+            $result = & $SetStatusInformationListeners[0] @{ timestamp=$now; transferred=12MB; total=100MB }
+            $result.speed_mb_s | Should -Be 0
+            $result.eta | Should -BeNullOrEmpty
+        }
+
     }
 }
