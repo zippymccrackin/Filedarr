@@ -1,5 +1,5 @@
 from quart import Blueprint, jsonify
-from app.state import clients
+from app.state import clients, broadcast
 from colorama import Fore, Style
 
 error_bp = Blueprint("error", __name__)
@@ -13,7 +13,6 @@ async def error():
     print(data)
     print(Fore.RED + data["message"] + Style.RESET_ALL)
     
-    for client in clients:
-        client.put_nowait({"action": "error", "data": {"message": data["message"]}})
+    broadcast({"action": "error", "data": {"message": data["message"]}}, clients)
         
     return jsonify({"status": "ok"})

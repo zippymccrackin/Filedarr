@@ -32,7 +32,7 @@ def test_get_tvdb_token_success(monkeypatch):
     fake_resp = MagicMock()
     fake_resp.json.return_value = {"data": {"token": "abc123"}}
     fake_resp.raise_for_status.return_value = None
-    monkeypatch.setattr(tmdb_service.requests, "post", lambda url, json: fake_resp)
+    monkeypatch.setattr(tmdb_service.requests, "post", lambda url, json, **kwargs: fake_resp)
 
     token = tmdb_service.get_tvdb_token("fakekey")
     assert token == "abc123"
@@ -42,7 +42,7 @@ def test_get_tvdb_token_http_error(monkeypatch):
     """Ensure None or exception is raised if API call fails."""
     fake_resp = MagicMock()
     fake_resp.raise_for_status.side_effect = Exception("HTTP 500")
-    monkeypatch.setattr(tmdb_service.requests, "post", lambda url, json: fake_resp)
+    monkeypatch.setattr(tmdb_service.requests, "post", lambda url, json, **kwargs: fake_resp)
 
     with pytest.raises(Exception):
         tmdb_service.get_tvdb_token("badkey")
@@ -78,7 +78,7 @@ def test_lookup_tmdb_info_uses_cache(temp_db, monkeypatch):
 
     # if API is called, raise error to prove it wasn't used
     monkeypatch.setattr(tmdb_service.requests, "get",
-                        lambda url: (_ for _ in ()).throw(Exception("Should not call API")))
+                        lambda url, **kwargs: (_ for _ in ()).throw(Exception("Should not call API")))
 
     result = tmdb_service.lookup_tmdb_info(123, "fakekey")
     assert result == cached
@@ -97,7 +97,7 @@ def test_lookup_tmdb_info_api_call(temp_db, monkeypatch):
     fake_resp = MagicMock()
     fake_resp.raise_for_status.return_value = None
     fake_resp.json.return_value = fake_movie
-    monkeypatch.setattr(tmdb_service.requests, "get", lambda url: fake_resp)
+    monkeypatch.setattr(tmdb_service.requests, "get", lambda url, **kwargs: fake_resp)
 
     result = tmdb_service.lookup_tmdb_info(456, "apikey123")
     assert result["title"] == "API Movie"
@@ -115,7 +115,7 @@ def test_lookup_tmdb_info_api_error(temp_db, monkeypatch):
     """Return None if API call raises an exception."""
     monkeypatch.setattr(
         tmdb_service.requests, "get",
-        lambda url: (_ for _ in ()).throw(Exception("network fail"))
+        lambda url, **kwargs: (_ for _ in ()).throw(Exception("network fail"))
     )
 
     result = tmdb_service.lookup_tmdb_info(999, "badkey")

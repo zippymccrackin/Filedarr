@@ -8,14 +8,14 @@ if ( -not ( Module-Enabled 'plex_slowdown' ) ) {
     return
 }
 
-$Script:variables = Get-Module-Variables 'plex_slowdown'
-$Script:variables.chunkSize = Convert-ToBytes $Script:variables.chunkSize
+$Script:plex_slowdownVariables = Get-Module-Variables 'plex_slowdown'
+$Script:plex_slowdownVariables.chunkSize = Convert-ToBytes $Script:plex_slowdownVariables.chunkSize
 
 # Plex Setup
-$Script:plexToken = $Script:variables.plex_token
-$Script:plexUrl = $Script:variables.plex_url
+$Script:plexToken = $Script:plex_slowdownVariables.plex_token
+$Script:plexUrl = $Script:plex_slowdownVariables.plex_url
 $Script:plexUrl = "$Script:plexUrl/status/sessions?X-Plex-Token=$plexToken"
-$Script:IntervalCheckSeconds = $Script:variables.intervalCheckSeconds
+$Script:IntervalCheckSeconds = $Script:plex_slowdownVariables.intervalCheckSeconds
 
 $Script:plexStreaming = $False
 
@@ -26,7 +26,7 @@ $Global:ChunkSizeListeners += {
     Update-PlexStreamingStatus
 
     if ($Script:plexStreaming) {
-        $chunkSize = $Script:variables.chunkSize
+        $chunkSize = $Script:plex_slowdownVariables.chunkSize
     }
 
     return $chunkSize
@@ -40,7 +40,7 @@ $Global:DelayMsListeners += {
     Update-PlexStreamingStatus
 
     if ($Script:plexStreaming) {
-        $delayMs = $Script:variables.delayMs
+        $delayMs = $Script:plex_slowdownVariables.delayMs
     }
 
     return $delayMs

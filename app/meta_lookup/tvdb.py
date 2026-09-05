@@ -6,7 +6,7 @@ from app.db_service import DB_FILE
 
 def get_tvdb_token(api_key):
     url = "https://api4.thetvdb.com/v4/login"
-    response = requests.post(url, json={"apikey": api_key})
+    response = requests.post(url, json={"apikey": api_key}, timeout=(2, 3))
     response.raise_for_status()
     return response.json().get("data", {}).get("token")
 
@@ -39,7 +39,7 @@ def lookup_tvdb_info(tvdbid, api_key):
         token = get_tvdb_token(api_key)
         headers = {"Authorization": f"Bearer {token}"}
         url = f"https://api4.thetvdb.com/v4/series/{tvdbid}"
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, timeout=(2, 3))
         response.raise_for_status()
         series = response.json().get("data", {})
 

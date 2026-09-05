@@ -1,17 +1,18 @@
 # Set ProgressPreference to silently continue to avoid progress bars in output
 $ProgressPreference = 'SilentlyContinue'
 
-# Load environment variables from .env file
-Get-Content .env | ForEach-Object {
-    if ($_ -match '^(\\w+)=(.*)$') {
-        $name = $matches[1]
-        $value = $matches[2]
-        $env:$name = $value
-    }
-}
-
 $importerScriptPath = $MyInvocation.MyCommand.Path
 $importerScriptDir = Split-Path -Parent $importerScriptPath
+
+# Resolve configuration relative to this script, including when launched by an arr.
+$envFile = Join-Path $importerScriptDir '.env'
+if (Test-Path -LiteralPath $envFile) {
+    Get-Content -LiteralPath $envFile | ForEach-Object {
+        if ($_ -match '^\s*(\w+)=(.*)$') {
+            [Environment]::SetEnvironmentVariable($matches[1], $matches[2].Trim().Trim('"').Trim("'"), 'Process')
+        }
+    }
+}
 
 # Load Utility Functions
 . "$importerScriptDir\ps\core\util.ps1"
@@ -29,8 +30,8 @@ Get-ChildItem "$importerScriptDir\ps\hooks\*.ps1" | ForEach-Object { . $_.FullNa
 Get-ChildItem "$importerScriptDir\ps\services\*.ps1" | ForEach-Object { . $_.FullName }
 
 # Set defaults from config
-$defaultChunkSize = $Global:Config.defaultChunkSize
-$defaultDelayMs = $Global:Config.defaultDelayMs
+$defaultChunkSize = Convert-ToBytes $Global:Config.config.defaultChunkSize
+$defaultDelayMs = [int]$Global:Config.config.defaultDelayMs
 
 # Fill the data from the services
 Write-Debug "Notify-Listeners call on Services (Length of $($Services.Length))"
@@ -78,34 +79,38 @@ if (!(Test-Path $destDir)) {
     New-Item -ItemType Directory $destDir | Out-Null
 }
 
-# Open streams
-$sourceStream = [System.IO.File]::OpenRead($sourceFile)
-$destStream = [System.IO.File]::Create($destFile)
+# Streams are opened inside the protected block. Never truncate an existing file.
+$sourceStream = $null
+$destStream = $null
 $totalRead = 0
 $startTime = Get-Date
 $lastUpdate = $startTime
+$copyClock = [System.Diagnostics.Stopwatch]::StartNew()
+$lastUpdateMs = 0
 
 Write-Debug "Notify-Listeners call on ChunkSizeListeners (Length of $($ChunkSizeListeners.Length))"
 $chunkSize = Notify-Listeners $ChunkSizeListeners -Return $defaultChunkSize
 
-$buffer = New-Object byte[] $chunkSize  # Resize buffer to match new chunk size
+if ($chunkSize -le 0 -or $chunkSize -gt 64MB) { throw "Chunk size must be between 1 byte and 64 MB" }
+$buffer = New-Object byte[] $chunkSize
 
 try {
+    $sourceStream = [System.IO.File]::OpenRead($sourceFile)
+    $destStream = [System.IO.File]::Open($destFile, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+    $delayMs = Notify-Listeners $DelayMsListeners -Return $defaultDelayMs
     while (($read = $sourceStream.Read($buffer, 0, $chunkSize)) -gt 0) {
         $destStream.Write($buffer, 0, $read)
         $totalRead += $read
 
-        Write-Debug "Notify-Listeners call on DelayMsListeners (Length of $($DelayMsListeners.Length))"
-        $delayMs = Notify-Listeners $DelayMsListeners -Return $defaultDelayMs
-        Start-Sleep -Milliseconds $delayMs
+        if ($delayMs -gt 0) { Start-Sleep -Milliseconds $delayMs }
 
-        # Send status update every second
-        if ((New-TimeSpan $lastUpdate (Get-Date)).TotalSeconds -ge 1) {
+        # Evaluate controls once a second, not for every buffer of data.
+        if ($copyClock.ElapsedMilliseconds - $lastUpdateMs -ge 1000) {
             $now = Get-Date
 
             $elapsed = ($now - $startTime).TotalSeconds
 
-            $percent = [math]::Round(($totalRead / $totalSize) * 100, 1)
+            $percent = [math]::Min(99.9, [math]::Round(($totalRead / $totalSize) * 100, 1))
 
             $status = @{
                 id = $uuid
@@ -132,24 +137,23 @@ try {
             Notify-Listeners $ChunkTransferredListeners $status
 
             $lastUpdate = $now
+            $lastUpdateMs = $copyClock.ElapsedMilliseconds
+            $delayMs = Notify-Listeners $DelayMsListeners -Return $defaultDelayMs
+            $nextChunkSize = Notify-Listeners $ChunkSizeListeners -Return $defaultChunkSize
+            if ($nextChunkSize -le 0 -or $nextChunkSize -gt 64MB) { throw "Invalid chunk size: $nextChunkSize" }
+            if ($nextChunkSize -ne $chunkSize) {
+                $chunkSize = $nextChunkSize
+                $buffer = New-Object byte[] $chunkSize
+            }
         }
-
-        Write-Debug "Notify-Listeners call on ChunkSizeListeners (Length of $($ChunkSizeListeners.Length))"
-        $chunkSize = Notify-Listeners $ChunkSizeListeners -Return $defaultChunkSize
-
-        $buffer = New-Object byte[] $chunkSize  # Resize buffer to match new chunk size
     }
+    if ($totalRead -ne $totalSize) { throw "Source size changed or copy was incomplete" }
 
     # Final flush & close
     $destStream.Flush()
     $sourceStream.Close()
     $destStream.Close()
 
-    # Delete original if not torrenting, for seeding
-    if ($downloadClientType -ieq "SabNZBD") {
-        Remove-Item -LiteralPath $sourceFile
-    }
-    
     # Wrapup status
     $status = @{
         id = $uuid
@@ -169,6 +173,12 @@ try {
 
     Write-Debug "Notify-Listeners call on TransferWrapupListeners (Length of $($TransferWrapupListeners.Length))"
     Notify-Listeners $TransferWrapupListeners $status
+    $destFile = $status['destination']
+
+    # Keep the source until all finalization hooks have succeeded.
+    if ($meta['downloadClientType'] -ieq "SabNZBD") {
+        Remove-Item -LiteralPath $sourceFile -ErrorAction Stop
+    }
 
     # Final status
     $status = @{
@@ -198,8 +208,8 @@ try {
     Write-Host "Line:    $($_.InvocationInfo.ScriptLineNumber)"
     Write-Host "Code:    $($_.InvocationInfo.Line.Trim())"
     Write-Host "Position: $($_.InvocationInfo.PositionMessage)"
-    $sourceStream.Close()
-    $destStream.Close()
-
     exit 1
+} finally {
+    if ($sourceStream) { $sourceStream.Dispose() }
+    if ($destStream) { $destStream.Dispose() }
 }
