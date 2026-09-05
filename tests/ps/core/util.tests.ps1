@@ -12,6 +12,15 @@ BeforeAll {
 
 Describe "util" {
     Context "Notify-Listeners" {
+        It "does not append null to a notification listener's output" {
+            $values = @(Notify-Listeners @({ param($path) return $path }) 'C:\tmp\staging')
+            $values.Count | Should -Be 1
+            $values[0] | Should -Be 'C:\tmp\staging'
+        }
+        It "preserves the destination when no path hooks are registered" {
+            Notify-Listeners @() -Return 'C:\media' | Should -Be 'C:\media'
+        }
+
         It "should return the same value passed if it doesn't modify it" {
             $fakeListeners += {
                 param($paramValue)

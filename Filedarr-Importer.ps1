@@ -1,5 +1,6 @@
 # Set ProgressPreference to silently continue to avoid progress bars in output
 $ProgressPreference = 'SilentlyContinue'
+$ErrorActionPreference = 'Stop'
 
 $importerScriptPath = $MyInvocation.MyCommand.Path
 $importerScriptDir = Split-Path -Parent $importerScriptPath
@@ -67,7 +68,10 @@ if( $totalSize -eq 0 ) {
 Write-Debug "Notify-Listeners call on SetDestinationFilenameListeners (Length of $($SetDestinationFilenameListeners.Length))"
 $filename = Notify-Listeners $SetDestinationFilenameListeners $destFile -Return $([System.IO.Path]::getFileName($destFile))
 Write-Debug "Notify-Listeners call on SetDestinationPathListeners (Length of $($SetDestinationPathListeners.Length))"
-$filepath = Notify-Listeners $SetDestinationPathListeners $(Split-Path -LiteralPath $destFile)
+$filepath = Notify-Listeners $SetDestinationPathListeners -Return (Split-Path -LiteralPath $destFile)
+if ([string]::IsNullOrWhiteSpace($filepath) -or [string]::IsNullOrWhiteSpace($filename)) {
+    throw "A destination hook returned an empty path or filename. Check staging and destination hooks."
+}
 
 $destFile = Join-Path $filepath $filename
 
@@ -75,15 +79,13 @@ Write-Host "Destination File: $destFile"
 
 # Create destination directory if needed
 $destDir = Split-Path -LiteralPath $destFile
-if (!(Test-Path $destDir)) {
+if (!(Test-Path -LiteralPath $destDir)) {
     New-Item -ItemType Directory $destDir | Out-Null
 }
 
 # The compiled worker owns file I/O; this thread remains available for heartbeats.
 . "$importerScriptDir\ps\core\diagnostics.ps1"
-if (-not ('Filedarr.CopyWorker' -as [type])) {
-    Add-Type -Path "$importerScriptDir\ps\core\CopyWorker.cs" -ErrorAction Stop
-}
+. "$importerScriptDir\ps\core\load_copy_worker.ps1"
 $maxConcurrent = $Global:Config.config.maxConcurrentTransfers
 if (-not $maxConcurrent) { $maxConcurrent = 1 }
 $stallSeconds = $Global:Config.config.stallWarningSeconds

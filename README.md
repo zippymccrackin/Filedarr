@@ -17,6 +17,14 @@ The sample hooks send status to `http://localhost:3565`. If the importer and das
 
 A module installed in your user profile may be invisible to the Windows account running an arr service. The importer now loads its pinned YAML module directly from `ps/modules/powershell-yaml/0.4.12`. Copy the entire `ps` folder, including the DLLs in both `lib` directories, when updating the importer. No service-account changes or online module installation are required. New import processes pick up the dependency automatically.
 
+## Arr launch-directory and staging fixes
+
+The importer compiles its worker using explicit references from the running PowerShell runtime. This avoids resolving incompatible System assemblies from an arr's working directory. Both Windows PowerShell 5.1 and PowerShell 7 are tested from a directory containing a conflicting System.dll.
+
+Destination hooks now transform a single starting path, and notification listeners no longer append an extra null result. The previous null output could make Join-Path fail even with staging enabled and a valid staging path. Destination construction errors now stop the import. Integration coverage includes enabled staging, every sample hook, and filenames/directories containing apostrophes and brackets.
+
+For these fixes, replace both `Filedarr-Importer.ps1` and the entire `ps` directory, including `ps/core/load_copy_worker.ps1`. Preserve your existing staging configuration. New arr import processes use the updated files.
+
 ## Live transfer troubleshooting
 
 The importer now runs a compiled .NET copy worker with two reusable buffers. Source reads and destination writes overlap, while PowerShell reports snapshots independently of pending I/O. Flush completion and byte counts are verified before finalization. Keep `ps/core/CopyWorker.cs` with the importer; it is compiled locally by `Add-Type` when an import starts.
