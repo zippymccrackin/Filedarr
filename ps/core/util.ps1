@@ -33,12 +33,13 @@ function Notify-Listeners {
         throw "Listeners parameter cannot be null. Pass an empty array if no listeners."
     }
 
+    $hasReturnValue = $PSBoundParameters.ContainsKey('Return')
     $count = 0
     Write-Debug "Calling listeners"
     foreach ($listener in $Listeners) {
         $count = $count + 1
         Write-Debug "Inside Listener Call $count"
-        if ($Return -ne $Null) {
+        if ($hasReturnValue) {
             $Return = & $listener $Return @Args
         } else {
             & $listener @Args
@@ -46,7 +47,7 @@ function Notify-Listeners {
     }
     Write-Debug "Return from listeners (called $count)"
 
-    return $Return
+    if ($hasReturnValue) { return $Return }
 }
 
 function Report-Error {

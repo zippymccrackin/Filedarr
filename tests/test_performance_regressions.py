@@ -65,13 +65,16 @@ def importer(tmp_path):
     return tmp_path
 
 
-def run_importer(importer, source, destination):
+def run_importer(importer, source, destination, *, cwd=None):
     env = {k: v for k, v in os.environ.items() if not k.lower().startswith(('sonarr_', 'radarr_'))}
     env.update(Radarr_SourcePath=str(source), Radarr_DestinationPath=str(destination), Radarr_Download_Client_Type='SabNZBD')
     # Simulate a service account that cannot see user-installed YAML modules.
     env['PSModulePath'] = str(Path(os.environ['SystemRoot']) / 'System32/WindowsPowerShell/v1.0/Modules')
-    return subprocess.run(['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(importer / 'Filedarr-Importer.ps1')],
-                          env=env, capture_output=True, text=True, timeout=30)
+    result = subprocess.run(['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(importer / 'Filedarr-Importer.ps1')],
+                            cwd=cwd, env=env, capture_output=True, text=True, timeout=30)
+    if result.returncode == 0:
+        assert not result.stderr.strip(), result.stderr
+    return result
 
 
 def test_copy_exact_bytes_and_protect_existing_destination(importer):
@@ -228,3 +231,75 @@ Write-Output 'Bundled YAML OK'
                             env=env, capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, result.stdout + result.stderr
     assert 'Bundled YAML OK' in result.stdout
+
+
+@pytest.mark.parametrize("shell", ["powershell", "pwsh"])
+def test_worker_compiles_with_conflicting_system_dll_in_working_directory(importer, shell):
+    executable = shutil.which(shell)
+    core_shell = shutil.which('pwsh')
+    if not executable or not core_shell:
+        pytest.skip('PowerShell runtimes unavailable')
+    conflict = Path(core_shell).parent / 'System.dll'
+    if not conflict.exists():
+        pytest.skip('Core System.dll unavailable for reproduction')
+    working = importer / 'arr-bin'
+    working.mkdir()
+    shutil.copy(conflict, working / 'System.dll')
+    script = importer / 'worker-check.ps1'
+    script.write_text('''$ErrorActionPreference = 'Stop'
+. "$PSScriptRoot/ps/core/load_copy_worker.ps1"
+. "$PSScriptRoot/ps/core/load_copy_worker.ps1"
+if ([Filedarr.CopyWorker]::new().Snapshot().Phase -ne 'starting') { throw 'Worker failed to load' }
+''')
+    result = subprocess.run([executable, '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(script)],
+                            cwd=working, capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not result.stderr.strip()
+
+
+def test_enabled_staging_with_all_hooks_from_arr_working_directory(importer):
+    received = []
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            received.append(json.loads(self.rfile.read(int(self.headers['Content-Length']))))
+            self.send_response(200)
+            self.send_header('Content-Length', '0')
+            self.end_headers()
+        def log_message(self, *args):
+            pass
+    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    root = Path(__file__).resolve().parents[1]
+    staging = importer / 'staging'
+    destination_dir = importer / "Show's Restaurant! [JA]" / 'Season 01'
+    destination = destination_dir / "Episode's [JA]!.mkv"
+    source = importer / 'source.mkv'
+    # All files and the eventual staging move stay inside this test's directory.
+    for path in (staging, destination, source):
+        assert path.resolve().is_relative_to(importer.resolve())
+    config = (root / 'config.yml').read_text()
+    config = config.replace('http://localhost:3565', f'http://127.0.0.1:{server.server_port}')
+    config = config.replace('stagingPath: \\tmp\\staging\\', 'stagingPath: ' + str(staging.relative_to(staging.anchor)))
+    (importer / 'config.yml').write_text(config)
+    # Confirm the test actually uses its isolated stage, never the sample path.
+    assert str(staging.relative_to(staging.anchor)) in config
+    working = importer / 'arr-bin'
+    working.mkdir()
+    core_shell = shutil.which('pwsh')
+    if core_shell and (Path(core_shell).parent / 'System.dll').exists():
+        shutil.copy(Path(core_shell).parent / 'System.dll', working / 'System.dll')
+    content = bytes(range(256)) * 400
+    source.write_bytes(content)
+    try:
+        result = run_importer(importer, source, destination, cwd=working)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert destination.read_bytes() == content
+        assert not source.exists()
+        assert staging.is_dir()
+        assert not (staging / destination.name).exists()
+        assert received[-1]['status'] == 'complete'
+        assert received[-1]['destination'] == str(destination)
+        assert f'Destination File: {staging / destination.name}' in result.stdout
+    finally:
+        server.shutdown()
+        server.server_close()

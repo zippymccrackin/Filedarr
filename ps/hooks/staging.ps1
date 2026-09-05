@@ -36,7 +36,7 @@ $Global:SetDestinationPathListeners += {
     Write-Debug "Staging path set to $stagingPath"
 
     # Create staging directory if needed
-    if (!(Test-Path $stagingPath)) {
+    if (!(Test-Path -LiteralPath $stagingPath)) {
         New-Item -ItemType Directory $stagingPath | Out-Null
     }
 
@@ -60,7 +60,7 @@ $Global:TransferWrapupListeners += {
 
     $filename = [System.IO.Path]::getFileName($stagedFile)
 
-    if (!(Test-Path $Script:destinationFilePath)) {
+    if (!(Test-Path -LiteralPath $Script:destinationFilePath)) {
         New-Item -ItemType Directory $Script:destinationFilePath | Out-Null
     }
 
