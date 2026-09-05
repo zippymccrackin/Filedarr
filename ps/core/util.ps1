@@ -1,7 +1,17 @@
-Import-Module powershell-yaml -ErrorAction Stop
-
 if (Get-Command -Name "Notify-Listeners" -CommandType Function -ErrorAction SilentlyContinue) {
     return
+}
+
+# Arr services may run as a different account and cannot see user-installed modules.
+$bundledYaml = Join-Path $PSScriptRoot '../modules/powershell-yaml/0.4.12/powershell-yaml.psd1'
+if (Test-Path -LiteralPath $bundledYaml) {
+    Import-Module -Name $bundledYaml -ErrorAction Stop
+} else {
+    try {
+        Import-Module powershell-yaml -ErrorAction Stop
+    } catch {
+        throw "Filedarr's YAML dependency is missing. Copy the entire ps folder, including ps/modules/powershell-yaml, from the release package. $($_.Exception.Message)"
+    }
 }
 
 $Global:Config = Get-Content -Raw -Path (Join-Path $PSScriptRoot '..\..\config.yml') | ConvertFrom-Yaml

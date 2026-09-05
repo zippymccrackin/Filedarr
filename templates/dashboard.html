@@ -236,11 +236,12 @@
           fetch(`/transfer/${item.id}`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' }
-          }).then(res => {
+          }).then(async res => {
             if (!res.ok) {
-              alert("Failed to delete transfer");
+              const error = await res.json().catch(() => ({}));
+              showErrorToast(error.error || "Failed to delete transfer");
             }
-          });
+          }).catch(() => showErrorToast("Could not reach the server to delete this transfer."));
         };
         const firstDiv = header.querySelector("div");
         firstDiv.insertBefore(removeBtn, firstDiv.firstChild);
@@ -520,11 +521,12 @@
         fetch(`/transfer/all`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' }
-        }).then(res => {
+        }).then(async res => {
           if (!res.ok) {
-            console.error(`Failed to delete all items`);
+            const error = await res.json().catch(() => ({}));
+            showErrorToast(error.error || "Failed to delete completed transfers");
           }
-        });
+        }).catch(() => showErrorToast("Could not reach the server to delete completed transfers."));
       };
 
       noBtn.onclick = closeOverlay;

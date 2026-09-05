@@ -1,6 +1,6 @@
 import requests
 import json
-import sqlite3
+from app.database import connection
 from datetime import datetime
 from app.db_service import DB_FILE
 
@@ -11,7 +11,7 @@ def get_tvdb_token(api_key):
     return response.json().get("data", {}).get("token")
 
 def get_cached_tmdb_info(tmdbid):
-    with sqlite3.connect(DB_FILE) as conn:
+    with connection(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('SELECT data, timestamp FROM tmdb_cache WHERE tmdbid = ?', (tmdbid,))
         row = c.fetchone()
@@ -22,13 +22,12 @@ def get_cached_tmdb_info(tmdbid):
     return None
 
 def cache_tmdb_info(tmdbid, data):
-    with sqlite3.connect(DB_FILE) as conn:
+    with connection(DB_FILE, write=True) as conn:
         c = conn.cursor()
         c.execute('''
             INSERT OR REPLACE INTO tmdb_cache (tmdbid, data, timestamp)
             VALUES (?, ?, ?)
         ''', (tmdbid, json.dumps(data), datetime.now().timestamp()))
-        conn.commit()
 
 def lookup_tmdb_info(tmdbid, api_key):
     cached = get_cached_tmdb_info(tmdbid)

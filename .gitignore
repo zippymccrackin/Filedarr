@@ -50,3 +50,6 @@ Thumbs.db
 test/source
 test/destination
 coverage
+# Pinned importer dependency required by service accounts
+!ps/modules/powershell-yaml/0.4.12/lib/net47/*.dll
+!ps/modules/powershell-yaml/0.4.12/lib/netstandard2.1/*.dll

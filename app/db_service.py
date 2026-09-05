@@ -1,4 +1,4 @@
-import sqlite3
+from app.database import connection
 import json
 from datetime import datetime
 import asyncio
@@ -11,7 +11,7 @@ COMPLETE_STATUS = "complete"
 STALE_STATUS = "stale"
 
 def init_db():
-    with sqlite3.connect(DB_FILE) as conn:
+    with connection(DB_FILE, write=True, initialize=True) as conn:
         c = conn.cursor()
         c.execute('''
             CREATE TABLE IF NOT EXISTS transfers (
@@ -35,19 +35,18 @@ def init_db():
             )
         ''')
         c.execute('CREATE INDEX IF NOT EXISTS transfers_status ON transfers(status)')
-        conn.commit()
 
 def save_transfer(id, status, data):
-    with sqlite3.connect(DB_FILE) as conn:
+    serialized = json.dumps(data)
+    with connection(DB_FILE, write=True) as conn:
         c = conn.cursor()
         c.execute('''
             REPLACE INTO transfers (id, status, data)
             VALUES (?, ?, ?)
-        ''', (id, status, json.dumps(data)))
-        conn.commit()
+        ''', (id, status, serialized))
 
 def load_transfer(id):
-    with sqlite3.connect(DB_FILE) as conn:
+    with connection(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('SELECT data, status FROM transfers WHERE id = ?', (id,))
         row = c.fetchone()
@@ -59,7 +58,7 @@ def load_transfer(id):
 
 def load_all_transfers():
     transfers = []
-    with sqlite3.connect(DB_FILE) as conn:
+    with connection(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('SELECT data, status FROM transfers')
         for row in c.fetchall():
@@ -86,19 +85,21 @@ async def start_background_tasks():
 
 def mark_stale_transfers():
     threshold = datetime.now().timestamp() - 30
+    with connection(DB_FILE) as conn:
+        rows = conn.execute('SELECT id, data FROM transfers WHERE status = ?', (INCOMPLETE_STATUS,)).fetchall()
+    candidates = []
+    for id, data_str in rows:
+        data = json.loads(data_str)
+        if data.get("timestamp", 0) < threshold:
+            candidates.append((id, data_str, data))
+    if not candidates:
+        return []
     stale_datas = []
-
-    with sqlite3.connect(DB_FILE) as conn:
-        c = conn.cursor()
-        c.execute('SELECT id, data FROM transfers WHERE status = ?', (INCOMPLETE_STATUS,))
-        rows = c.fetchall()
-        for id, data_str in rows:
-            data = json.loads(data_str)
-            if data.get("timestamp", 0) < threshold:
-                c.execute('UPDATE transfers SET status = ? WHERE id = ? AND data = ? AND status = ?',
-                          (STALE_STATUS, id, data_str, INCOMPLETE_STATUS))
-                if not c.rowcount:
-                    continue
+    with connection(DB_FILE, write=True) as conn:
+        for id, data_str, data in candidates:
+            cursor = conn.execute('UPDATE transfers SET status = ? WHERE id = ? AND data = ? AND status = ?',
+                                  (STALE_STATUS, id, data_str, INCOMPLETE_STATUS))
+            if cursor.rowcount:
                 data["status"] = STALE_STATUS
                 stale_datas.append(data)
     return stale_datas
