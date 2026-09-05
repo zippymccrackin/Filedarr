@@ -9,9 +9,13 @@ File transfer monitor and importer for Sonarr and Radarr.
 3. Stop the old Filedarr server, then double-click `Start-Filedarr.cmd` (it sets the working directory before launching the executable). Open `http://localhost:3565` (or `http://<PC-address>:3565` from another PC).
 4. Point Sonarr/Radarr at the updated `Filedarr-Importer.ps1`. Update the entire `ps` folder too; replacing only the executable does not update the copy engine.
 
-The importer needs PowerShell and the `powershell-yaml` module. The executable includes the Python server and dashboard assets. The archive also includes Python sources if you prefer `python run.py`. The server reads `.env` and stores `transfers.db` in its working directory. Keep this directory on a local disk. If preserving history, copy the old database after stopping the old server.
+The importer needs Windows PowerShell 5.1 (or PowerShell 7). The release includes `powershell-yaml` 0.4.12 under `ps/modules`; no separate module installation is needed. The executable includes the Python server and dashboard assets. The archive also includes Python sources if you prefer `python run.py`. The server reads `.env` and stores `transfers.db` in its working directory. Keep this directory on a local disk. If preserving history, copy the old database after stopping the old server.
 
 The sample hooks send status to `http://localhost:3565`. If the importer and dashboard run on different PCs, set both notification URLs in `config.yml` to the server's address. TMDB/TVDB API keys are optional; missing keys do not prevent transfers or dashboard updates.
+
+## YAML module missing under Sonarr/Radarr
+
+A module installed in your user profile may be invisible to the Windows account running an arr service. The importer now loads its pinned YAML module directly from `ps/modules/powershell-yaml/0.4.12`. Copy the entire `ps` folder, including the DLLs in both `lib` directories, when updating the importer. No service-account changes or online module installation are required. New import processes pick up the dependency automatically.
 
 ## Live transfer troubleshooting
 
@@ -53,6 +57,12 @@ Restart the Python server (`python run.py`) or replace the executable, and repla
 - Existing destination files are never truncated. Copy size is checked, streams are disposed on failure, and SABnzbd sources are deleted only after finalization succeeds. Torrent sources remain available for seeding.
 
 An interrupted copy retains its source and may leave a partial destination. Automatic resume is not implemented: inspect and move/remove that partial file before retrying. Final notification failure produces a warning and does not undo a successful copy. Hardware, antivirus scanning, Wi-Fi/SMB performance, and Plex throttling can still limit actual throughput; local tests do not establish speeds on another PC.
+
+## Database contention
+
+The server now closes every SQLite connection explicitly, coordinates its own writes, and enables WAL mode at startup so dashboard reads do not block writes. External locks get a bounded wait; persistent contention returns HTTP 503 with `Retry-After` and a visible dashboard message. Cleanup parses candidates before acquiring its write transaction.
+
+To install this fix, stop the old Python server/executable, update the server files, and restart one instance from the normal local working directory. Keep `transfers.db`; the existing history is upgraded in place. Do not delete the database or its `-wal`/`-shm` sidecar files to clear a lock. If contention persists, close any database editor or extra server using that database. WAL databases must stay on local storage, even when media files are copied over network shares.
 
 ## Run or build from source
 

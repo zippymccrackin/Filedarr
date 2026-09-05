@@ -8,15 +8,14 @@ load_dotenv()
 transfer_bp = Blueprint("transfer", __name__)
  
 def _delete(transfer_id=None):
-    import sqlite3
+    from app.database import connection
     from app.db_service import DB_FILE, COMPLETE_STATUS, STALE_STATUS
-    with sqlite3.connect(DB_FILE) as conn:
+    with connection(DB_FILE, write=True) as conn:
         c = conn.cursor()
         if transfer_id is None:
             c.execute("DELETE FROM transfers WHERE status IN (?, ?, ?)", (COMPLETE_STATUS, STALE_STATUS, "failed"))
         else:
             c.execute('DELETE FROM transfers WHERE id = ?', (transfer_id,))
-        conn.commit()
         return c.rowcount > 0
 
 

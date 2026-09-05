@@ -68,6 +68,8 @@ def importer(tmp_path):
 def run_importer(importer, source, destination):
     env = {k: v for k, v in os.environ.items() if not k.lower().startswith(('sonarr_', 'radarr_'))}
     env.update(Radarr_SourcePath=str(source), Radarr_DestinationPath=str(destination), Radarr_Download_Client_Type='SabNZBD')
+    # Simulate a service account that cannot see user-installed YAML modules.
+    env['PSModulePath'] = str(Path(os.environ['SystemRoot']) / 'System32/WindowsPowerShell/v1.0/Modules')
     return subprocess.run(['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(importer / 'Filedarr-Importer.ps1')],
                           env=env, capture_output=True, text=True, timeout=30)
 
@@ -203,3 +205,26 @@ modules:
     finally:
         server.shutdown()
         server.server_close()
+
+
+@pytest.mark.parametrize("shell", ["powershell", "pwsh"])
+def test_bundled_yaml_loads_without_user_module_paths(importer, shell):
+    executable = shutil.which(shell)
+    if not executable:
+        pytest.skip(f"{shell} is not installed")
+    env = os.environ.copy()
+    env['PSModulePath'] = str(Path(os.environ['SystemRoot']) / 'System32/WindowsPowerShell/v1.0/Modules')
+    script = importer / 'yaml-check.ps1'
+    script.write_text('''$ErrorActionPreference = 'Stop'
+. "$PSScriptRoot/ps/core/util.ps1"
+$module = Get-Module powershell-yaml
+if (-not $module.ModuleBase.StartsWith($PSScriptRoot, [StringComparison]::OrdinalIgnoreCase)) { throw 'Loaded a module outside the importer' }
+if ((Convert-ToBytes $Global:Config.config.defaultChunkSize) -ne [long](4.1MB)) { throw 'Configuration parsing failed' }
+# Repeated includes must remain safe for the hooks.
+. "$PSScriptRoot/ps/core/util.ps1"
+Write-Output 'Bundled YAML OK'
+''')
+    result = subprocess.run([executable, '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(script)],
+                            env=env, capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'Bundled YAML OK' in result.stdout
