@@ -10,6 +10,8 @@ from app.error_handler import errorhandler_bp
 import os
 
 def create_app():
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(os.getcwd(), ".env"))
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     app = Quart(
@@ -18,7 +20,7 @@ def create_app():
         static_folder=os.path.join(project_root, "static")
     )
     app = cors(app)
-    app.debug = True
+    app.debug = False
 
     app.before_serving(start_background_tasks)
         

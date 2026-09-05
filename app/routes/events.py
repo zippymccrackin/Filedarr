@@ -1,41 +1,36 @@
-from quart import Blueprint, Response, request
+from quart import Blueprint, Response
 import asyncio
 import json
-
-# You may need to import or pass in these from your app structure
 from app.db_service import load_all_transfers
 from app.state import clients
 
 events_bp = Blueprint("events", __name__)
+KEEPALIVE_TIMEOUT = 5
 
-KEEPALIVE_TIMEOUT = 5  # seconds
 
 @events_bp.route('/events')
 async def events():
-    q = asyncio.Queue()
-    clients.append(q)
-    await q.put({"action": "init", "data": load_all_transfers()})
-    client_ip = request.remote_addr
-    print(f"[Client connected] {client_ip}")
-
     async def event_stream():
+        q = asyncio.Queue(maxsize=128)
+        clients.append(q)
         try:
+            transfers = await asyncio.to_thread(load_all_transfers)
+            yield f'data: {json.dumps({"action": "init", "data": transfers})}\n\n'
             while True:
                 try:
-                    print("Waiting for message...")
                     msg = await asyncio.wait_for(q.get(), timeout=KEEPALIVE_TIMEOUT)
+                    if msg is None:
+                        return
                     yield f"data: {json.dumps(msg)}\n\n"
                 except asyncio.TimeoutError:
-                    # keep alive
-                    print("Sending keep-alive")
                     yield ": keep-alive\n\n"
-        except asyncio.CancelledError:
-            print(f"[Client disconnected] {client_ip}")
+        finally:
             clients.remove(q)
 
-    return Response(event_stream(), headers={
+    response = Response(event_stream(), headers={
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
-        "Transfer-Encoding": "chunked"
+        "X-Accel-Buffering": "no",
     })
+    response.timeout = None
+    return response

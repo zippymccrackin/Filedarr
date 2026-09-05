@@ -10,7 +10,7 @@ async def test_app_initialization(monkeypatch):
     monkeypatch.setattr("app.db_service.start_background_tasks", lambda: None)
     
     app = create_app()
-    assert app.debug is True
+    assert app.debug is False
     
 @pytest.mark.asyncio
 async def test_app_blueprints_registered(monkeypatch):

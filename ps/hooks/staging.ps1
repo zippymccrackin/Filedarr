@@ -6,13 +6,13 @@ if ( -not ( Module-Enabled 'staging' ) ) {
     return
 }
 
-$Script:variables = Get-Module-Variables 'staging'
+$Script:stagingVariables = Get-Module-Variables 'staging'
 
 Write-Debug "Init staging.ps1"
 
 $Script:destinationFilePath = ""
-$Script:stagingPath = $Script:variables.stagingPath
-Write-Debug "All staging variables: $( $Script:variables | ConvertTo-Json -Depth 5 )"
+$Script:stagingPath = $Script:stagingVariables.stagingPath
+Write-Debug "All staging variables: $( $Script:stagingVariables | ConvertTo-Json -Depth 5 )"
 Write-Debug "Staging path variable set to: $Script:stagingPath"
 
 Write-Debug "Require notify_server.ps1"
@@ -66,7 +66,8 @@ $Global:TransferWrapupListeners += {
 
     $destination = Join-Path $Script:destinationFilePath $filename
     Write-Debug "Moving file $stagedFile to $destination"
-    Move-Item -LiteralPath $stagedFile -Destination $destination
+    Move-Item -LiteralPath $stagedFile -Destination $destination -ErrorAction Stop
+    $status['destination'] = $destination
 }
 Write-Debug "    Done adding to TransferWrapupListeners (Length $($TransferWrapupListeners.Length))"
 

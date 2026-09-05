@@ -2,7 +2,7 @@ import sqlite3
 import json
 from datetime import datetime
 import asyncio
-from app.state import clients
+from app.state import clients, broadcast
 
 DB_FILE = "transfers.db"
 
@@ -34,6 +34,7 @@ def init_db():
                 timestamp REAL
             )
         ''')
+        c.execute('CREATE INDEX IF NOT EXISTS transfers_status ON transfers(status)')
         conn.commit()
 
 def save_transfer(id, status, data):
@@ -70,23 +71,9 @@ def load_all_transfers():
 async def remove_stale_transfers():
     while True:
         try:
-            threshold = datetime.now().timestamp() - 30
-            stale_datas = []
-
-            with sqlite3.connect(DB_FILE) as conn:
-                c = conn.cursor()
-                c.execute('SELECT id, data FROM transfers WHERE status = ?', (INCOMPLETE_STATUS,))
-                rows = c.fetchall()
-                for id, data_str in rows:
-                    data = json.loads(data_str)
-                    if data.get("timestamp", 0) < threshold:
-                        c.execute('UPDATE transfers SET status = ? WHERE id = ?', (STALE_STATUS, id))
-                        data["status"] = STALE_STATUS
-                        stale_datas.append(data)
-
-            for client in clients:
-                for data in stale_datas:
-                    client.put_nowait({"action": "update", "data": data})
+            stale_datas = await asyncio.to_thread(mark_stale_transfers)
+            for data in stale_datas:
+                broadcast({"action": "update", "data": data}, clients)
         except Exception as e:
             print(f"[Stale cleanup error] {e}")
 
@@ -95,3 +82,23 @@ async def remove_stale_transfers():
 async def start_background_tasks():
     from quart import current_app
     current_app.add_background_task(remove_stale_transfers)
+
+
+def mark_stale_transfers():
+    threshold = datetime.now().timestamp() - 30
+    stale_datas = []
+
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute('SELECT id, data FROM transfers WHERE status = ?', (INCOMPLETE_STATUS,))
+        rows = c.fetchall()
+        for id, data_str in rows:
+            data = json.loads(data_str)
+            if data.get("timestamp", 0) < threshold:
+                c.execute('UPDATE transfers SET status = ? WHERE id = ? AND data = ? AND status = ?',
+                          (STALE_STATUS, id, data_str, INCOMPLETE_STATUS))
+                if not c.rowcount:
+                    continue
+                data["status"] = STALE_STATUS
+                stale_datas.append(data)
+    return stale_datas

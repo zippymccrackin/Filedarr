@@ -6,7 +6,7 @@ if ( -not ( Module-Enabled 'speed_report' ) ) {
     return
 }
 
-$Script:variables = Get-Module-Variables 'speed_report'
+$Script:speed_reportVariables = Get-Module-Variables 'speed_report'
 
 Write-Debug "Init speed_report.ps1"
 
@@ -25,7 +25,7 @@ $Global:SetStatusInformationListeners += {
     # Remove entries older than 5 seconds
     $Script:recentStats = @( 
         if ($Script:recentStats -is [System.Collections.IEnumerable]) {
-            $Script:recentStats | Where-Object { $_ -and ($now - $_.time).TotalSeconds -le $Script:variables.intervalCheckSeconds }
+            $Script:recentStats | Where-Object { $_ -and ($now - $_.time).TotalSeconds -le $Script:speed_reportVariables.intervalCheckSeconds }
         } elseif ($Script:recentStats) {
             if (($now - $Script:recentStats.time).TotalSeconds -le 5) { $Script:recentStats }
         }

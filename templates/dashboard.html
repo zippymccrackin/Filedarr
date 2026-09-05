@@ -14,8 +14,7 @@
 
   <link rel="stylesheet" href="/style.css" />
 
-  <link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css" />
-  <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
+
 </head>
 
 <body>
@@ -47,8 +46,8 @@
           style="font-size: 0.8em; padding: 4px 10px; background: #c62828; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%">
           ✖ Remove All Completed Transfers
         </button>
-        <div class="pagination completed-pagination desktop-only"></div>
-        <!-- Swiper container only for mobile -->
+        <div class="pagination completed-pagination"></div>
+        <!-- Paginated history shared by desktop and mobile -->
         <div class="swiper-container">
           <div class="pagination-display mobile-only" style="text-align: center;"></div>
           <div class="swiper-wrapper" id="completed-swiper-wrapper">
@@ -56,7 +55,7 @@
           </div>
         </div>
         <!-- Desktop pagination -->
-        <div class="pagination desktop-only completed-pagination"></div>
+        <div class="pagination completed-pagination"></div>
       </div>
     </div>
   </div>
@@ -94,7 +93,7 @@
     }
 
     let currentCompletedPage = localStorage.getItem('currentCompletedPage') || 1;
-    currentCompletedPage = parseInt(currentCompletedPage);
+    currentCompletedPage = Math.max(1, parseInt(currentCompletedPage) || 1);
     function setCurrentCompletedPage(page) {
       currentCompletedPage = page;
       localStorage.setItem('currentCompletedPage', page);
@@ -189,7 +188,7 @@
       }
       transfer.innerHTML = `
     <div class="transfer-header">
-      <img src="${poster}" alt="Poster" style="width: 80px; height: 120px; margin-right: 12px; object-fit: cover; border-radius: 6px;" />
+      <img loading="lazy" src="${poster}" alt="Poster" style="width: 80px; height: 120px; margin-right: 12px; object-fit: cover; border-radius: 6px;" />
       <div style="flex-grow: 1;">
         <div style="font-size: 1.1em; font-weight: bold;">${name}</div>
         <div class="episode-display">${seasonEpisodeDisplay}</div>
@@ -223,9 +222,7 @@
       header.addEventListener('click', () => {
         details.style.display = details.style.display === 'none' || details.style.display === '' ? 'block' : 'none';
 
-        if (window.completedSwiper) {
-          window.completedSwiper.updateAutoHeight();
-        }
+
       });
 
       // Only show remove button if it's completed or stale
@@ -321,7 +318,7 @@
       const current = sortTransfersByETA(allTransfers.filter(t => t.status?.toLowerCase() == "incomplete"));
       completedTransfers = allTransfers.filter(t => t.status?.toLowerCase() == "complete" || t.status?.toLowerCase() == "stale");
 
-      console.log(allTransfers);
+
 
       current.forEach(item => {
         dashboard.current.appendChild(renderTransferItem(item));
@@ -379,7 +376,7 @@
     function updateDashboard(data) {
       const element = document.getElementById(data.id);
 
-      if (data.status == "complete") { // let renderCompletedTransfersPage handle it because pagination
+      if (data.status == "complete" || data.status == "stale") { // let renderCompletedTransfersPage handle it because pagination
         if (element) {
           element.remove();
         }
@@ -402,6 +399,13 @@
         return;
       }
 
+      if (completedTransfers.some(item => item.id === data.id)) {
+        completedTransfers = completedTransfers.filter(item => item.id !== data.id);
+        if (element) element.remove();
+        renderCompletedTransfersPage();
+        dashboard.current.appendChild(renderTransferItem(data));
+        return;
+      }
       if (!element) {
         // create element
         dashboard.current.appendChild(renderTransferItem(data));
@@ -438,7 +442,7 @@
     const evtSource = new EventSource("/events");
     evtSource.onmessage = function (event) {
       const payload = JSON.parse(event.data);
-      console.log(payload);
+
       const data = payload.data;
       const action = payload.action.toLowerCase();
       switch (action) {
@@ -550,41 +554,14 @@
         setCurrentCompletedPage(Math.max(1, totalPages)); // fallback to 1 if totalPages is 0
       }
 
-      for (let page = 1; page <= totalPages; page++) {
-        const slide = document.createElement('div');
-        slide.className = 'swiper-slide';
-
-        const start = (page - 1) * itemsPerPage;
-        const end = start + itemsPerPage;
-        const pageItems = completedTransfers.slice(start, end);
-
-        const pageDiv = document.createElement('div');
-        pageItems.forEach(item => {
-          pageDiv.appendChild(renderTransferItem(item));
-        });
-
-        slide.appendChild(pageDiv);
-        wrapper.appendChild(slide);
-      }
-
-      // (Re)init Swiper
-      if (window.completedSwiper) {
-        window.completedSwiper.destroy(true, true);
-      }
-
-      window.completedSwiper = new Swiper('.swiper-container', {
-        autoHeight: true,
-        direction: 'horizontal',
-        loop: false,
-        spaceBetween: 16,
-        slidesPerView: 1,
-        observer: true,
-        observeParents: true,
-        initialSlide: currentCompletedPage - 1
+      wrapper.classList.remove("fade-out-up");
+      const start = (currentCompletedPage - 1) * itemsPerPage;
+      const slide = document.createElement('div');
+      slide.className = 'swiper-slide';
+      completedTransfers.slice(start, start + itemsPerPage).forEach(item => {
+        slide.appendChild(renderTransferItem(item));
       });
-      window.completedSwiper.on('slideChange', () => {
-        setCurrentCompletedPage(Math.min(totalPages, window.completedSwiper.activeIndex + 1));
-      })
+      wrapper.appendChild(slide);
       updatePageDisplay();
 
       renderPaginationControls();

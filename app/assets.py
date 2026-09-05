@@ -3,7 +3,7 @@ from quart import Blueprint, send_from_directory
 
 assets_bp = Blueprint("assets", __name__)
 
-STATIC_PATH = os.path.join(os.getcwd(), "static")
+STATIC_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
 STATIC_IMAGE_PATH = os.path.join(STATIC_PATH, "images")
 
 @assets_bp.route('/favicon.ico')
