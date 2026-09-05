@@ -1,6 +1,8 @@
 config:
   - defaultChunkSize: 4.1MB
   - defaultDelayMs: 0
+  - maxConcurrentTransfers: 1
+  - stallWarningSeconds: 5
 
 modules:
   - module_name: plex_slowdown

@@ -490,3 +490,10 @@ body.dark section#top {
   cursor: pointer;
   line-height: 1;
 }
+
+.transfer-health { margin: 10px 0 4px; font-size: .9em; line-height: 1.5; }
+.diagnostic-warning { color: #b45309; font-weight: 600; }
+.dark .diagnostic-warning { color: #fbbf24; }
+.live-diagnostics { margin-top: 8px; font-size: .85em; overflow-wrap: anywhere; }
+.live-diagnostics summary { cursor: pointer; padding: 6px 0; }
+.diagnostics-body p { margin: 8px 0; line-height: 1.5; }

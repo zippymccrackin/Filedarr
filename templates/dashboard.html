@@ -70,6 +70,7 @@
     </div>
   </div>
 
+  <script src="/static/diagnostics.js"></script>
   <script>
     const dashboard = {
       current: document.getElementById('current-transfers'),
@@ -171,18 +172,18 @@
       let transferredDisplay = "";
       let etaSpeedDisplay = "";
       let relativeTimeDisplay = "";
-      if (percent < 100) {
+      if (item.status === "incomplete") {
         transferredDisplay = `<span class="transferredMb">${Number(item.transferred_mb).toLocaleString()}</span> MB /`;
         etaSpeedDisplay = ` <div class="eta-speed">
-          <span class="eta">${item.eta}</span> &nbsp;|&nbsp;
+          <span class="eta">${item.eta || "ETA unknown"}</span> &nbsp;|&nbsp;
           <span class="speedColor ${speedClass}">
-            <span class="speed">${item.speed_mb_s?.toFixed(2) || '0.00'}</span> MB/s
+            <span class="speed">${item.speed_mb_s == null ? 'Measuring' : Number(item.speed_mb_s).toFixed(2)}</span> MB/s
           </span>
         </div>`;
       } else {
         // lets say how long ago it completed
         relativeTimeDisplay = `<div class="time-display">
-            Completed <span class="completedTime" data-timestamp="${item.timestamp}">${getRelativeTime(item.timestamp)}</span>
+            ${item.status === "complete" ? "Completed" : "Last update"} <span class="completedTime" data-timestamp="${item.timestamp}">${getRelativeTime(item.timestamp)}</span>
             <span class="tooltiptext">${getFriendlyTime(item.timestamp)}</span>
           </div>`;
       }
@@ -226,7 +227,7 @@
       });
 
       // Only show remove button if it's completed or stale
-      if (item.status.toLowerCase() == "complete" || item.status.toLowerCase() == "stale") {
+      if (item.status.toLowerCase() == "complete" || item.status.toLowerCase() == "stale" || item.status.toLowerCase() == "failed") {
         const removeBtn = document.createElement('button');
         removeBtn.className = 'remove-btn';
         removeBtn.textContent = '✖';
@@ -245,6 +246,7 @@
         firstDiv.insertBefore(removeBtn, firstDiv.firstChild);
       }
 
+      TransferDiagnostics.update(transferContainer, item);
       return transferContainer;
     }
 
@@ -316,7 +318,7 @@
       const allTransfers = Object.values(data).flat();
 
       const current = sortTransfersByETA(allTransfers.filter(t => t.status?.toLowerCase() == "incomplete"));
-      completedTransfers = allTransfers.filter(t => t.status?.toLowerCase() == "complete" || t.status?.toLowerCase() == "stale");
+      completedTransfers = allTransfers.filter(t => t.status?.toLowerCase() == "complete" || t.status?.toLowerCase() == "stale" || t.status?.toLowerCase() == "failed");
 
 
 
@@ -376,7 +378,7 @@
     function updateDashboard(data) {
       const element = document.getElementById(data.id);
 
-      if (data.status == "complete" || data.status == "stale") { // let renderCompletedTransfersPage handle it because pagination
+      if (data.status == "complete" || data.status == "stale" || data.status == "failed") { // let renderCompletedTransfersPage handle it because pagination
         if (element) {
           element.remove();
         }
@@ -410,32 +412,30 @@
         // create element
         dashboard.current.appendChild(renderTransferItem(data));
       } else {
-        // just update values
-        let chunkElement = element.querySelector(".chunkSize");
-        let delayElement = element.querySelector(".delayMs");
-        if (data.chunk_size)
-          if (data.chunk_size != undefined && data.delay_ms != undefined) {
-            chunkElement.innerText = data.chunk_size;
-            delayElement.innerText = data.delay_ms;
-          } else {
-            if (chunkElement) chunkElement.style.display = "none";
-            if (delayElement) delayElement.style.display = "none";
-          }
-        element.querySelector(".source").innerText = data.source;
-        element.querySelector(".destination").innerText = data.destination;
-        element.querySelector(".message").innerText = data.message;
-        element.querySelector(".transferredMb").innerText = Number(data.transferred_mb).toLocaleString();
-        element.querySelector(".totalMb").innerText = Number(data.total_mb).toLocaleString();
-        element.querySelector(".eta").innerText = data.eta;
-        element.querySelector(".speed").innerText = data.speed_mb_s;
-
-        const perc = parseFloat(data.percent_complete.replace('%', '')) || 0;
-        element.querySelector(".percentComplete").innerText = `${perc.toFixed(1)}%`;
-        element.querySelector(".progress-fill").style.width = `${perc}%`;
-        element.querySelector(".progress-fill").style.background = getBackgroundColor(perc);
-
-        element.querySelector(".speedColor").classList.remove("speedFast", "speedMedium", "speedSlow");
-        element.querySelector(".speedColor").classList.add(`${data.speed_mb_s >= speedHigh ? 'speedFast' : data.speed_mb_s >= speedMedium ? 'speedMedium' : 'speedLow'}`);
+        const setText = (selector, value) => {
+          const target = element.querySelector(selector);
+          if (target) target.textContent = value;
+        };
+        setText('.chunkSize', data.chunk_size);
+        setText('.delayMs', data.delay_ms);
+        setText('.source', data.source);
+        setText('.destination', data.destination);
+        setText('.message', data.message);
+        setText('.transferredMb', Number(data.transferred_mb).toLocaleString());
+        setText('.totalMb', Number(data.total_mb).toLocaleString());
+        setText('.eta', data.eta || 'ETA unknown');
+        setText('.speed', data.speed_mb_s == null ? 'Measuring' : Number(data.speed_mb_s).toFixed(2));
+        const perc = parseFloat(data.percent_complete) || 0;
+        setText('.percentComplete', `${perc.toFixed(1)}%`);
+        const fill = element.querySelector('.progress-fill');
+        fill.style.width = `${perc}%`;
+        fill.style.background = getBackgroundColor(perc);
+        const speedColor = element.querySelector('.speedColor');
+        if (speedColor) {
+          speedColor.classList.remove('speedFast', 'speedMedium', 'speedSlow');
+          speedColor.classList.add(data.speed_mb_s >= speedHigh ? 'speedFast' : data.speed_mb_s >= speedMedium ? 'speedMedium' : 'speedSlow');
+        }
+        TransferDiagnostics.update(element, data);
       }
     }
 

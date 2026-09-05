@@ -13,7 +13,7 @@ def _delete(transfer_id=None):
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         if transfer_id is None:
-            c.execute('DELETE FROM transfers WHERE status = ? OR status = ?', (COMPLETE_STATUS, STALE_STATUS))
+            c.execute("DELETE FROM transfers WHERE status IN (?, ?, ?)", (COMPLETE_STATUS, STALE_STATUS, "failed"))
         else:
             c.execute('DELETE FROM transfers WHERE id = ?', (transfer_id,))
         conn.commit()
@@ -49,6 +49,8 @@ def _receive_status(transfer_id, data):
     data["id"] = transfer_id
     data["timestamp"] = datetime.now().timestamp()
     status = COMPLETE_STATUS if data["percent_complete"] == "100%" and data.get("status") != "wrapup" else INCOMPLETE_STATUS
+    if data.get("status") == "failed":
+        status = "failed"
     for provider, lookup in (("tvdb", lookup_tvdb_info), ("tmdb", lookup_tmdb_info)):
         meta_id = data.get("meta", {}).get(provider + "id")
         key = os.getenv(provider.upper() + "_API_KEY")
